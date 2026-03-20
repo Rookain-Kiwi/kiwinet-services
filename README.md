@@ -184,7 +184,7 @@ docker compose up -d --force-recreate
 **Prérequis sur la VM :**
 - Docker + Docker Compose installés
 - Ports `80` et `443` ouverts (UFW + redirections Freebox)
-- DNS A de chaque domaine pointant vers `82.67.126.108`
+- DNS A de chaque domaine pointant vers l'IP fixe
 - `traefik/acme.json` existant avec `chmod 600`
 
 ---
