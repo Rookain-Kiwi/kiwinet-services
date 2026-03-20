@@ -13,7 +13,7 @@ Il fait partie d'un ensemble de quatre repos qui constituent l'infrastructure de
 
 | Repo                   | Rôle                                    | URL déployée            
 |------------------------|-----------------------------------------|-------------------------
-| **`kiwinet-infra`**    | Traefik, routing, SSL, middlewares      | `none`
+| `kiwinet-infra`    | Traefik, routing, SSL, middlewares      | `none`
 | `kiwinet-web`          | Site principal Astro + Nginx            | `kiwinet.me`            
 | `kiwinet-status`       | Page de statut Uptime Kuma              | `status.kiwinet.me`     
 | `kiwinet-monitoring`   | Stack Prometheus / Loki / Grafana       | `grafana.kiwinet.me`    
@@ -90,7 +90,7 @@ Un certificat wildcard (`*.kiwinet.me`) aurait nécessité un DNS Challenge - no
 | `plex.kiwinet.me`      | Traefik      | Automatique                      
 | `status.kiwinet.me`    | Traefik      | Automatique                      
 | `grafana.kiwinet.me`   | Traefik      | Automatique                      
-| `freebox.kiwinet.me`   | Certbot      | **Manuel** - échéance 15/06/2026 
+| `freebox.kiwinet.me`   | Certbot      | Manuel - échéance 15/06/2026 
 
 `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions depuis le réseau local vers ses ports d'administration. Traefik ne peut pas lui faire de proxy. Le certificat est généré avec Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
