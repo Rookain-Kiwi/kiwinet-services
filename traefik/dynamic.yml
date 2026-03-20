@@ -48,4 +48,4 @@ http:
     plex:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:32400"
+          - url: "http://172.17.0.1:32400"
