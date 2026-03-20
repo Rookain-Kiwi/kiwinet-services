@@ -27,5 +27,25 @@ http:
     # Limitation de débit pour les endpoints publics.
     rate-limit:
       rateLimit:
-        average: 100
-        burst: 50
+        average: 100                  # Requêtes/seconde en régime normal
+        burst: 50                     # Pic autorisé au-delà de la moyenne
+
+  # Routeurs et services exposés.
+  routers:
+
+    # Plex Media Server : accès public via HTTPS.
+    plex:
+      rule: "Host(`plex.kiwinet.me`)"
+      entryPoints:
+        - websecure
+      service: plex
+      tls:
+        certResolver: letsencrypt
+
+  services:
+
+    # Plex tourne en local : Traefik fait office de reverse proxy TLS.
+    plex:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:32400"
