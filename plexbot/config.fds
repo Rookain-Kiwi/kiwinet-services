@@ -1,0 +1,33 @@
+# ═══════════════════════════════════════════════════
+# PlexBot — config.fds (Frenetic Data Syntax)
+# ═══════════════════════════════════════════════════
+
+# ── Lecteur visuel ───────────────────────────────────
+visualPlayer.useModernPlayer: true          # true = player image, false = embed classique
+
+# Salon statique dédié (recommandé — voir guide Discord)
+# 1. Créer un salon texte nommé #musique ou #plexbot
+# 2. Clic droit > Copier l'identifiant du salon
+# 3. Coller l'ID ci-dessous
+visualPlayer.staticChannel.enabled: true
+visualPlayer.staticChannel.channelId: 0    # ← Remplacer par l'ID réel du salon Discord
+
+# Déconnexion automatique après X minutes de silence
+visualPlayer.inactivityTimeout: 5.0
+
+# Barre de progression (désactiver si trop d'appels API Discord)
+visualPlayer.progressBar.enabled: true
+visualPlayer.progressBar.size: medium
+
+# ── Plex ────────────────────────────────────────────
+# Réduire si les playlists échouent à charger, augmenter si réseau solide
+plex.maxConcurrentResolves: 3
+
+# ── Logs ────────────────────────────────────────────
+logging.level: INFO
+logging.saveToFile: true
+logging.path: logs/plex-bot-[year]-[month]-[day].log
+
+# ── Bot ─────────────────────────────────────────────
+# Laisser vide en production / mettre "Development" pour tests rapides
+bot.environment:

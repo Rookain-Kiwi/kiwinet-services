@@ -1,8 +1,7 @@
 ###############################################################################
-# docker-compose.yml : Traefik Reverse Proxy
+# docker-compose.yml : Infrastructure kiwinet.me
 # Projet  : kiwinet.me
 # VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
-# Image   : traefik:v3 (compatible linux/arm64)
 # SSL     : Let's Encrypt : HTTP Challenge (IP fixe, port 80 ouvert)
 ###############################################################################
 
@@ -55,6 +54,59 @@ services:
       - "traefik.http.services.kiwinet-web.loadbalancer.server.port=80"
       - "traefik.http.routers.kiwinet-web.middlewares=secure-headers@file"
 
+  # ───────────────────────────────────────────────────────────────────────────
+  # LAVALINK : Moteur audio Java pour PlexBot
+  # Pas d'exposition externe — communication interne uniquement
+  # ───────────────────────────────────────────────────────────────────────────
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: lavalink
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "2333"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD}
+      _JAVA_OPTIONS: "-XX:+UseZGC -XX:+ZGenerational -Xms256m -Xmx512m"
+    volumes:
+      - ./plexbot/lavalink.yml:/opt/Lavalink/application.yml:ro
+      - lavalink-logs:/opt/Lavalink/logs
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:2333/version || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PLEXBOT : Bot Discord — streaming musique Plex en vocal
+  # Pas d'exposition externe — WebSocket sortant vers Discord API
+  # ───────────────────────────────────────────────────────────────────────────
+  plexbot:
+    image: ghcr.io/kalebbroo/plexbot:latest
+    container_name: plexbot
+    restart: unless-stopped
+    depends_on:
+      lavalink:
+        condition: service_healthy
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      PLEX_URL: ${PLEX_URL}
+      PLEX_TOKEN: ${PLEX_TOKEN}
+      LAVALINK_HOST: lavalink
+      LAVALINK_SERVER_PORT: "2333"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD}
+      LAVALINK_SECURE: "false"
+    volumes:
+      - ./plexbot/config.fds:/app/config.fds:ro
+      - plexbot-logs:/app/logs
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
 # ─────────────────────────────────────────────────────────────────────────────
@@ -66,4 +118,8 @@ networks:
 # ─────────────────────────────────────────────────────────────────────────────
 # VOLUMES
 # ─────────────────────────────────────────────────────────────────────────────
-volumes: {}
+volumes:
+  lavalink-logs:
+    driver: local
+  plexbot-logs:
+    driver: local
