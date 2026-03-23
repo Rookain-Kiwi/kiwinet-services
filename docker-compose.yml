@@ -85,7 +85,7 @@ services:
   # Pas d'exposition externe — WebSocket sortant vers Discord API
   # ───────────────────────────────────────────────────────────────────────────
   plexbot:
-    image: ghcr.io/kalebbroo/plexbot:latest
+    image: plexbot:latest
     container_name: plexbot
     restart: unless-stopped
     depends_on:
