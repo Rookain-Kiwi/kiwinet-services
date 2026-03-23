@@ -10,7 +10,7 @@ visualPlayer.useModernPlayer: true          # true = player image, false = embed
 # 2. Clic droit > Copier l'identifiant du salon
 # 3. Coller l'ID ci-dessous
 visualPlayer.staticChannel.enabled: true
-visualPlayer.staticChannel.channelId: 0    # ← Remplacer par l'ID réel du salon Discord
+visualPlayer.staticChannel.channelId: 1485651533201932338
 
 # Déconnexion automatique après X minutes de silence
 visualPlayer.inactivityTimeout: 5.0
