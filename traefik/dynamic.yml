@@ -1,4 +1,4 @@
-# dynamic.yml : Configuration dynamique Traefik
+# traefik/dynamic.yml : Configuration dynamique Traefik
 # Ce fichier est rechargé à chaud, aucun redémarrage requis.
 
 http:
@@ -30,7 +30,14 @@ http:
         average: 100                  # Requêtes/seconde en régime normal
         burst: 50                     # Pic autorisé au-delà de la moyenne
 
-  # Routeurs et services exposés.
+    # Home Assistant : transmet le protocole réel au conteneur
+    # Nécessaire pour que HA reconnaisse les connexions HTTPS
+    # et génère des URLs correctes (webhooks, Cast, app mobile)
+    ha-forwardproto:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
   routers:
 
     # Plex Media Server : accès public via HTTPS.
@@ -42,6 +49,20 @@ http:
       tls:
         certResolver: letsencrypt
 
+    # Home Assistant : domotique locale exposée via HTTPS.
+    # HA tourne en network_mode: host → même pattern que Plex
+    # ⚠️  Vérifier l'IP : docker network inspect proxy | grep Gateway
+    homeassistant:
+      rule: "Host(`ha.kiwinet.me`)"
+      entryPoints:
+        - websecure
+      service: homeassistant
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - secure-headers
+        - ha-forwardproto
+
   services:
 
     # Plex tourne en local : Traefik fait office de reverse proxy TLS.
@@ -49,3 +70,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://172.17.0.1:32400"
+
+    # Home Assistant en network_mode: host
+    # 172.18.0.1 = gateway réseau proxy = IP VM vue depuis Traefik
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://172.18.0.1:8123"

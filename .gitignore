@@ -1,2 +1,22 @@
-traefik/acme.json
+# ─────────────────────────────────────────────────────────────────────────────
+# kiwinet-infra/.gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Variables d'environnement — ne jamais versionner
 .env
+
+# Certificats Let's Encrypt — régénérés automatiquement par Traefik
+traefik/acme.json
+
+# ── Home Assistant ────────────────────────────────────────────────────────────
+# Données HA persistantes — volumineuses et contiennent des secrets
+ha/config/
+
+# Données et logs Mosquitto
+ha/mosquitto/data/
+ha/mosquitto/log/
+
+# ── Système ───────────────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*.swo

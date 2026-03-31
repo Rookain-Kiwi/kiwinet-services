@@ -1,0 +1,65 @@
+###############################################################################
+# ha/docker-compose.yml : Home Assistant + Mosquitto MQTT
+# Projet  : kiwinet-infra / ha
+# VM      : Debian 13 ARM AArch64 (Freebox Delta)
+# Accès   : https://ha.kiwinet.me (via Traefik → traefik/dynamic.yml)
+###############################################################################
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # HOME ASSISTANT
+  # Image officielle — supporte ARM64 nativement
+  #
+  # network_mode: host — OBLIGATOIRE pour la découverte mDNS
+  #   Les appareils Google Cast / Chromecast / Nest utilisent le multicast
+  #   sur le LAN. Sans mode host, HA ne les voit pas.
+  #
+  # Traefik : pas de labels ici — la route est déclarée manuellement
+  #   dans traefik/dynamic.yml (pattern identique à Plex)
+  # ───────────────────────────────────────────────────────────────────────────
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:8123 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # MOSQUITTO : Broker MQTT
+  # Communication IoT locale — non exposé publiquement via Traefik
+  # Port 1883 accessible sur le LAN uniquement
+  # ───────────────────────────────────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    ports:
+      - "1883:1883"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# proxy : réseau externe créé par ../docker-compose.yml (kiwinet-infra)
+# HA est en mode host — pas de réseau Docker pour lui
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
