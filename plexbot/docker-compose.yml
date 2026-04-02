@@ -1,0 +1,79 @@
+###############################################################################
+# plexbot/docker-compose.yml : Bot Discord — streaming Plex en vocal
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Images  : plexbot (build local), lavalink:4
+# Accès   : WebSocket sortant vers Discord API — pas d'exposition externe
+###############################################################################
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # LAVALINK : Moteur audio Java pour PlexBot
+  # Communication interne uniquement — pas d'exposition externe
+  # ───────────────────────────────────────────────────────────────────────────
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: lavalink
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "2333"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD}
+      _JAVA_OPTIONS: "-XX:+UseZGC -Xms256m -Xmx512m"
+    volumes:
+      - ./lavalink.yml:/opt/Lavalink/application.yml:ro
+      - lavalink-logs:/opt/Lavalink/logs
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2333/version || true"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PLEXBOT : Bot Discord — streaming musique Plex en vocal
+  # WebSocket sortant vers Discord API — pas d'exposition externe
+  # ───────────────────────────────────────────────────────────────────────────
+  plexbot:
+    image: plexbot:latest
+    container_name: plexbot
+    restart: unless-stopped
+    depends_on:
+      lavalink:
+        condition: service_healthy
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      PLEX_URL: ${PLEX_URL}
+      PLEX_TOKEN: ${PLEX_TOKEN}
+      LAVALINK_HOST: lavalink
+      LAVALINK_SERVER_PORT: "2333"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD}
+      LAVALINK_SECURE: "false"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./config.fds:/app/config.fds:ro
+      - plexbot-logs:/app/logs
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  lavalink-logs:
+    driver: local
+  plexbot-logs:
+    driver: local
