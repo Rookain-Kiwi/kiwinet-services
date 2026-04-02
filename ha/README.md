@@ -4,10 +4,10 @@ Domotique locale intégrée à la stack kiwinet-infra.
 
 ## Stack
 
-| Conteneur | Rôle | Réseau |
-|---|---|---|
+| Conteneur       | Rôle                        | Réseau               |
+|-----------------|-----------------------------|----------------------|
 | `homeassistant` | Serveur domotique principal | `host` (mDNS requis) |
-| `mosquitto` | Broker MQTT local | `proxy` |
+| `mosquitto`     | Broker MQTT local           | `proxy`              |
 
 ## Accès
 
