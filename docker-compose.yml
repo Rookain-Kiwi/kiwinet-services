@@ -19,6 +19,7 @@ services:
       - "80:80"     # HTTP  → redirigé automatiquement vers HTTPS
                     #         aussi utilisé par Let's Encrypt HTTP Challenge
       - "443:443"   # HTTPS → trafic SSL principal
+      - "25565:25565" # TCP  → Minecraft Java Edition (passthrough)
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -108,6 +109,46 @@ services:
     labels:
       - "traefik.enable=false"
 
+  # ───────────────────────────────────────────────────────────────────────────
+  # MINECRAFT : Serveur Java Edition avec support plugins (PaperMC)
+  # TCP brut routé via Traefik en passthrough sur le port 25565
+  # Monde existant monté depuis ~/Minecraft/kiwinet.me
+  # ───────────────────────────────────────────────────────────────────────────
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: minecraft
+    restart: unless-stopped
+    environment:
+      # Acceptation EULA Mojang — obligatoire
+      EULA: "TRUE"
+      # Serveur PaperMC : compatible vanilla client, supporte les plugins Bukkit/Spigot/Paper
+      TYPE: "PAPER"
+      VERSION: "26.1"
+      MEMORY: "4G"
+      TZ: "Europe/Paris"
+      # Applique les variables ci-dessous sur server.properties à chaque démarrage
+      OVERRIDE_SERVER_PROPERTIES: "true"
+      # Paramètres server.properties
+      DIFFICULTY: "normal"
+      GAMEMODE: "survival"
+      MAX_PLAYERS: "6"
+      WHITE_LIST: "true"
+      ENFORCE_WHITELIST: "true"
+      MOTD: "§2Bienvenue sur le serveur privé Kiwinet!"
+      # RCON : accès console à distance sans entrer dans le conteneur
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: ${RCON_PASSWORD}
+      RCON_PORT: "25575"
+      # Plugins téléchargés automatiquement depuis Modrinth au démarrage
+      # Ajouter les slugs Modrinth séparés par des virgules
+      MODRINTH_PROJECTS: ""
+    volumes:
+      - minecraft-data:/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,4 +164,6 @@ volumes:
   lavalink-logs:
     driver: local
   plexbot-logs:
+    driver: local
+  minecraft-data:
     driver: local

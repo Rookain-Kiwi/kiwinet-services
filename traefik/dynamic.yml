@@ -77,3 +77,26 @@ http:
       loadBalancer:
         servers:
           - url: "http://172.18.0.1:8123"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TCP : Services non-HTTP routés en passthrough
+# ─────────────────────────────────────────────────────────────────────────────
+tcp:
+  routers:
+
+    # Minecraft Java Edition : TCP brut, pas de TLS Traefik
+    # Le client Minecraft gère son propre protocole de connexion
+    minecraft:
+      rule: "HostSNI(`*`)"
+      entryPoints:
+        - minecraft
+      service: minecraft
+
+  services:
+
+    # Minecraft tourne dans Docker sur le réseau proxy
+    # Traefik forward le TCP vers le conteneur via son nom de service
+    minecraft:
+      loadBalancer:
+        servers:
+          - address: "minecraft:25565"

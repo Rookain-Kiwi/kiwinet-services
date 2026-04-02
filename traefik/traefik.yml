@@ -49,6 +49,11 @@ entryPoints:
   websecure:
     address: ":443"
 
+  # Port 25565 : TCP brut Minecraft Java Edition
+  # Traefik fait du passthrough — le protocole Minecraft n'est pas déchiffré
+  minecraft:
+    address: ":25565"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CERTIFICATS SSL : Let's Encrypt (HTTP Challenge)
 #
