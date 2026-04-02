@@ -1,0 +1,63 @@
+###############################################################################
+# minecraft/docker-compose.yml : Serveur Minecraft Java Edition
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : itzg/minecraft-server (compatible linux/arm64)
+# Accès   : minecraft.kiwinet.me:25565 (TCP brut via Traefik passthrough)
+###############################################################################
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # MINECRAFT : Serveur Java Edition (Vanilla) avec RCON activé
+  # TCP brut routé via Traefik en passthrough sur le port 25565
+  # ───────────────────────────────────────────────────────────────────────────
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: minecraft
+    restart: unless-stopped
+    environment:
+      # Acceptation EULA Mojang — obligatoire
+      EULA: "TRUE"
+      # Vanilla le temps que PaperMC supporte la version 26.1
+      # Repasser en TYPE: "PAPER" dès que Paper publie le support 26.1
+      TYPE: "VANILLA"
+      VERSION: "26.1"
+      MEMORY: "4G"
+      TZ: "Europe/Paris"
+      # Applique les variables ci-dessous sur server.properties à chaque démarrage
+      OVERRIDE_SERVER_PROPERTIES: "true"
+      # Paramètres server.properties
+      DIFFICULTY: "normal"
+      GAMEMODE: "survival"
+      MAX_PLAYERS: "6"
+      WHITE_LIST: "true"
+      ENFORCE_WHITELIST: "true"
+      MOTD: "§2Bienvenue sur le serveur privé Kiwinet!"
+      LEVEL: "kiwinet"
+      # RCON : accès console à distance sans entrer dans le conteneur
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: ${RCON_PASSWORD}
+      RCON_PORT: "25575"
+      # Plugins téléchargés automatiquement depuis Modrinth au démarrage
+      MODRINTH_PROJECTS: ""
+    volumes:
+      - minecraft-data:/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=false"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  minecraft-data:
+    driver: local
