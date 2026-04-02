@@ -110,9 +110,8 @@ services:
       - "traefik.enable=false"
 
   # ───────────────────────────────────────────────────────────────────────────
-  # MINECRAFT : Serveur Java Edition avec support plugins (PaperMC)
+  # MINECRAFT : Serveur Java Edition (Vanilla ou PaperMC) avec RCON activé
   # TCP brut routé via Traefik en passthrough sur le port 25565
-  # Monde existant monté depuis ~/Minecraft/kiwinet.me
   # ───────────────────────────────────────────────────────────────────────────
   minecraft:
     image: itzg/minecraft-server:latest
@@ -136,6 +135,7 @@ services:
       WHITE_LIST: "true"
       ENFORCE_WHITELIST: "true"
       MOTD: "§2Bienvenue sur le serveur privé Kiwinet!"
+      LEVEL: "kiwinet"
       # RCON : accès console à distance sans entrer dans le conteneur
       ENABLE_RCON: "true"
       RCON_PASSWORD: ${RCON_PASSWORD}
