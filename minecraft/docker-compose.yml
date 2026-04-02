@@ -60,4 +60,5 @@ networks:
 # ─────────────────────────────────────────────────────────────────────────────
 volumes:
   minecraft-data:
-    driver: local
+    name: minecraft_minecraft-data
+    external: true
