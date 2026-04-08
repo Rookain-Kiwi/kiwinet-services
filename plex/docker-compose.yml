@@ -4,6 +4,7 @@
 # VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
 # Image   : plexinc/pms-docker (officielle, compatible linux/arm64)
 # Accès   : plex.kiwinet.me (HTTPS via Traefik → port 32400 interne, non exposé publiquement)
+#           LAN direct sur port 32400 (découverte GDM pour clients locaux)
 ###############################################################################
 services:
   # ───────────────────────────────────────────────────────────────────────────
@@ -14,6 +15,11 @@ services:
     image: plexinc/pms-docker:latest
     container_name: plex
     restart: unless-stopped
+    ports:
+      # Exposition LAN directe — permet la découverte GDM et la lecture locale
+      # sans transiter par Traefik (corrige la lecture audio sur Android TV)
+      # ⚠️  Ne PAS ouvrir ce port côté WAN sur la Freebox Delta
+      - "32400:32400"
     environment:
       TZ: "Europe/Paris"
       # Token de claim — générer sur https://plex.tv/claim (valable 4 min)
