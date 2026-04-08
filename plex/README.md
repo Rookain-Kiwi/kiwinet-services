@@ -65,3 +65,27 @@ docker compose pull && docker compose up -d --force-recreate
 ## Médias
 
 Bibliothèques montées en lecture seule depuis le NAS Freebox via CIFS (`/etc/fstab`). Les points de montage sont définis dans le `docker-compose.yml`.
+
+Les montages CIFS doivent impérativement utiliser les options suivantes pour garantir la stabilité sous Docker :
+
+```
+guest,uid=rookain,gid=rookain,vers=3.0,cache=strict,serverino,_netdev,x-systemd.automount,x-systemd.device-timeout=30
+```
+
+---
+
+## Réseau
+
+Le port `32400` est exposé directement sur le LAN pour permettre aux clients locaux (Android TV, etc.) de se connecter sans transiter par Traefik. Ce port ne doit pas être ouvert côté WAN sur la Freebox Delta.
+
+### Configuration post-déploiement (manuelle, une seule fois)
+
+Après le premier démarrage, configurer les URLs de connexion dans Plex Web :
+
+**Paramètres → Réseau → "URL personnalisées pour accéder au serveur"**
+
+```
+https://plex.kiwinet.me,http://192.168.1.33:32400
+```
+
+Sans cette configuration, les clients Chromecast/Android TV transitent systématiquement par Traefik, provoquant des coupures audio erratiques.
