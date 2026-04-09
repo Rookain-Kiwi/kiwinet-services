@@ -35,6 +35,7 @@ services:
       - /mnt/Kodi/Films:/media/films:ro
       - /mnt/Kodi/Séries TV:/media/series:ro
       - /mnt/Kodi/Musique:/media/musique:ro
+      - /mnt/Kodi/Plex-Optimized:/media/optimized
       # Transcodage temporaire en RAM
       - /tmp/plex-transcode:/transcode
     networks:

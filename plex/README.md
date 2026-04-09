@@ -74,6 +74,30 @@ guest,uid=rookain,gid=rookain,vers=3.0,cache=strict,serverino,_netdev,x-systemd.
 
 ---
 
+## Versions optimisées
+
+Plex peut générer des versions allégées des médias ("Optimized for TV, Optimized for Mobile, Original Quality, Personnalisé") pour faciliter le streaming à distance. Ces fichiers ne peuvent pas être écrits dans les bibliothèques source (montées en `:ro`) ni sur le disque VM (capacité insuffisante).
+
+**Solution retenue :** stockage dans un sous-dossier dédié sur le NAS Freebox, monté en lecture/écriture et isolé des médias d'origine.
+
+| Volume conteneur   | Chemin VM                  | Droits |
+|--------------------|----------------------------|--------|
+| `/media/optimized` | `/mnt/Kodi/Plex-Optimized` | `rw`   |
+
+### Configuration post-déploiement (manuelle, une seule fois)
+
+Après le premier démarrage, configurer l'emplacement de stockage dans Plex Web :
+
+**Paramètres → Dépannage → "Emplacement des versions optimisées"**
+
+```
+/media/optimized
+```
+
+> ⚠️ Le nom exact du paramètre est à confirmer dans l'interface — il peut varier selon la version de Plex.
+
+---
+
 ## Réseau
 
 Le port `32400` est exposé directement sur le LAN pour permettre aux clients locaux (Android TV, etc.) de se connecter sans transiter par Traefik. Ce port ne doit pas être ouvert côté WAN sur la Freebox Delta.
