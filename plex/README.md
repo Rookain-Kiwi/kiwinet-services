@@ -51,7 +51,7 @@ Le token se génère sur `https://plex.tv/claim` (valable 4 minutes). Requis uni
 ## Déploiement
 
 ```bash
-cd /opt/kiwinet-services/plex
+cd /opt/kiwinet-infra/plex
 
 docker compose up -d
 docker compose logs -f
@@ -64,42 +64,53 @@ docker compose pull && docker compose up -d --force-recreate
 
 ## Médias
 
-Bibliothèques montées en lecture seule depuis le NAS Freebox via CIFS (`/etc/fstab`). Les points de montage sont définis dans le `docker-compose.yml`.
+Bibliothèques montées depuis le NAS Freebox via CIFS (`/etc/fstab`). Les points de montage sont définis dans le `docker-compose.yml`.
 
-Les montages CIFS doivent impérativement utiliser les options suivantes pour garantir la stabilité sous Docker :
+### Options fstab requises
 
 ```
-guest,uid=rookain,gid=rookain,vers=3.0,cache=strict,serverino,_netdev,x-systemd.automount,x-systemd.device-timeout=30
+guest,uid=rookain,gid=rookain,file_mode=0777,dir_mode=0777,vers=3.0,cache=strict,serverino,_netdev,x-systemd.automount,x-systemd.device-timeout=30
 ```
+
+| Option                         | Raison                                                                                                                                                       |
+|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `file_mode=0777,dir_mode=0777` | L'uid `plex` dans le conteneur (`1000`) diffère de l'uid `plex` sur la VM (`994`) — la gestion fine par propriétaire/groupe est inopérante depuis le conteneur. `0777` est le seul moyen de garantir l'accès en écriture. |
+| `uid=rookain,gid=rookain`      | Propriétaire des fichiers côté VM pour les opérations manuelles                                                                                              |
+| `vers=3.0,cache=strict`        | Stabilité CIFS sous Docker                                                                                                                                   |
+| `serverino`                    | Inodes stables — requis pour Plex                                                                                                                            |
+| `_netdev,x-systemd.automount`  | Montage différé au démarrage, après disponibilité réseau                                                                                                     |
+
+### Droits par bibliothèque
+
+| Volume conteneur  | Droits | Raison                                    |
+|-------------------|--------|-------------------------------------------|
+| `/media/films`    | `rw`   | Écriture des versions optimisées          |
+| `/media/series`   | `rw`   | Écriture des versions optimisées          |
+| `/media/musique`  | `:ro`  | Lecture seule — pas de cas d'optimisation |
 
 ---
 
 ## Versions optimisées
 
-Plex stocke peut générer des versions allégées des médias ("Optimized for TV, Optimized for Mobile, Original Quality, Personnalisé") pour faciliter le streaming à distance et directement dans l'arborescence des médias source, sans option de redirection dans l'interface.
+Plex peut générer des versions allégées des médias ("Optimize for TV") pour faciliter le streaming à distance.
 
-Les bibliothèques Films et Séries TV sont donc montées en lecture/écriture.
-La bibliothèque Musique reste en `:ro` (pas de cas d'usage pour l'optimisation).
-
-| Volume conteneur  | Droits | Raison                              |
-|-------------------|--------|-------------------------------------|
-| `/media/films`    | `rw`   | Versions optimisées Films           |
-| `/media/series`   | `rw`   | Versions optimisées Séries TV       |
-| `/media/musique`  | `:ro`  | Lecture seule — pas d'optimisation  |
-
----
-
-### Configuration post-déploiement (manuelle, une seule fois)
-
-Après le premier démarrage, configurer l'emplacement de stockage dans Plex Web :
-
-**Paramètres → Dépannage → "Emplacement des versions optimisées"**
+Plex ne propose pas d'option de redirection du répertoire de stockage — les fichiers optimisés sont écrits directement dans l'arborescence des médias source, dans un sous-dossier dédié :
 
 ```
-/media/optimized
+/media/series/<Titre série>/Plex Versions/Optimized for TV/<Titre série>/
+/media/films/<Titre film>/Plex Versions/Optimized for TV/
 ```
 
-> ⚠️ Le nom exact du paramètre est à confirmer dans l'interface — il peut varier selon la version de Plex.
+Ces fichiers sont stockés sur le NAS Freebox (3 To) et non sur le disque VM (120 Go).
+
+### Paramètres recommandés
+
+**Paramètres → Transcodeur :**
+
+| Paramètre                                     | Valeur      |
+|-----------------------------------------------|-------------|
+| Préréglage x264 en arrière-plan               | Très rapide |
+| Transcodages vidéo en arrière-plan simultanés | 1           |
 
 ---
 
