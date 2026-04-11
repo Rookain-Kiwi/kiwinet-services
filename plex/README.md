@@ -114,6 +114,28 @@ Ces fichiers sont stockés sur le NAS Freebox (3 To) et non sur le disque VM (12
 
 ---
 
+## Clients
+
+Le transcodage serveur est le principal facteur de dégradation sur ARM64 — pas le codec ni le débit. Les clients modernes (smartphones, tablettes, TV) sont capables de décoder nativement le x264/x265 10-bit sans intervention du serveur.
+
+**Configuration cible pour chaque client Plex :**
+
+**Paramètres → Vidéo & Audio :**
+
+| Paramètre         | Valeur   |
+|-------------------|----------|
+| Qualité locale    | Maximum  |
+| Qualité Wi-Fi     | Maximum  |
+| Qualité mobile    | Maximum  |
+| Lecture directe   | Activée  |
+| Diffusion directe | Activée  |
+
+Sans cette configuration, Plex transcode à la volée côté serveur, provoquant des freezes et une charge CPU élevée sur ARM64 — même pour des fichiers que le client pourrait lire nativement.
+
+Les versions optimisées ("Optimize for TV") restent utiles pour les clients vraiment limités incapables de Direct Play, mais ne sont pas nécessaires pour les appareils récents.
+
+---
+
 ## Réseau
 
 Le port `32400` est exposé directement sur le LAN pour permettre aux clients locaux (Android TV, etc.) de se connecter sans transiter par Traefik. Ce port ne doit pas être ouvert côté WAN sur la Freebox Delta.
