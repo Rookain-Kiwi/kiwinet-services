@@ -1,0 +1,56 @@
+# traefik/dynamic.vps.yml : Configuration dynamique Traefik — VPS Scaleway
+# Ce fichier est rechargé à chaud, aucun redémarrage requis.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP : Middlewares, routers et services HTTP/HTTPS
+# ─────────────────────────────────────────────────────────────────────────────
+http:
+  middlewares:
+
+    # Headers de sécurité HTTP pour les services exposés publiquement.
+    secure-headers:
+      headers:
+        stsSeconds: 31536000          # HSTS 1 an
+        stsIncludeSubdomains: true
+        stsPreload: true
+        frameDeny: true               # Anti-clickjacking
+        contentTypeNosniff: true      # Anti-MIME sniffing
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Powered-By: ""            # Masquer la stack technique
+          Server: ""
+
+    # Limitation de débit pour les endpoints publics.
+    rate-limit:
+      rateLimit:
+        average: 100                  # Requêtes/seconde en régime normal
+        burst: 50                     # Pic autorisé au-delà de la moyenne
+
+  routers:
+
+    # kiwinet-web : site portfolio exposé via HTTPS.
+    # Le container Nginx rejoint le réseau proxy avec les labels Traefik.
+    kiwinet-web:
+      rule: "Host(`kiwinet.me`) || Host(`www.kiwinet.me`)"
+      entryPoints:
+        - websecure
+      service: kiwinet-web
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "kiwinet.me"
+            sans:
+              - "www.kiwinet.me"
+      middlewares:
+        - secure-headers
+        - rate-limit
+
+  services:
+
+    # kiwinet-web tourne dans Docker sur le réseau proxy
+    # Traefik forward vers le container via son nom de service
+    kiwinet-web:
+      loadBalancer:
+        servers:
+          - url: "http://kiwinet-web:80"

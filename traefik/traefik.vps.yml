@@ -1,0 +1,70 @@
+# traefik.vps.yml : Configuration statique — VPS Scaleway
+# Chargé au démarrage. Tout changement nécessite un restart du conteneur.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGS
+# ─────────────────────────────────────────────────────────────────────────────
+log:
+  level: INFO   # Passer en DEBUG pour diagnostiquer les problèmes de certificat
+
+accessLog: {}   # Active le log de chaque requête entrante
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API & DASHBOARD
+# ─────────────────────────────────────────────────────────────────────────────
+api:
+  dashboard: false   # Dashboard désactivé sur le VPS — surface d'attaque réduite
+  insecure: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROVIDERS
+# ─────────────────────────────────────────────────────────────────────────────
+providers:
+  docker:
+    # Seuls les conteneurs avec le label traefik.enable=true sont exposés
+    exposedByDefault: false
+    network: proxy
+
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true   # Rechargement à chaud sans restart
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POINTS D'ENTRÉE
+# ─────────────────────────────────────────────────────────────────────────────
+entryPoints:
+
+  # Port 80 : HTTP
+  # Sert exclusivement à la validation ACME et redirige tout le reste vers HTTPS
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true   # Redirection 301, mise en cache par les navigateurs
+
+  # Port 443 : HTTPS, point d'entrée principal
+  websecure:
+    address: ":443"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CERTIFICATS SSL : Let's Encrypt (HTTP Challenge)
+#
+# Flux de validation :
+#   1. Traefik soumet une demande de certificat à Let's Encrypt
+#   2. Let's Encrypt envoie une requête HTTP sur le port 80 de kiwinet.me
+#   3. Traefik répond avec le token de validation
+#   4. Certificat émis, valable 90 jours, renouvelé automatiquement
+#
+# Prérequis : port 80 accessible depuis Internet (UFW + Scaleway SG) et
+#             kiwinet.me pointant sur l'IP du VPS
+# ─────────────────────────────────────────────────────────────────────────────
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "loic.kergoat.business@kiwinet.me"
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web   # Validation via le port 80

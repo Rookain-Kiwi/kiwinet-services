@@ -1,0 +1,42 @@
+###############################################################################
+# traefik/docker-compose.vps.yml : Reverse Proxy Traefik — VPS Scaleway
+# Projet  : kiwinet.me
+# Cible   : VPS Scaleway STARDUST1-S (x86_64, fr-par-1)
+# Image   : traefik:v3 (compatible linux/amd64)
+# SSL     : Let's Encrypt HTTP Challenge (port 80 ouvert, IP datacenter fixe)
+###############################################################################
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # TRAEFIK : Point d'entrée unique HTTP/HTTPS du VPS
+  # ───────────────────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+
+    ports:
+      - "80:80"     # HTTP → validation ACME + redirection HTTPS
+      - "443:443"   # HTTPS → trafic SSL principal
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro       # API Docker — découverte automatique des services
+      - ./traefik.vps.yml:/etc/traefik/traefik.yml:ro      # Config statique VPS — requiert restart si modifiée
+      - ./dynamic.vps.yml:/etc/traefik/dynamic.yml:ro      # Config dynamique VPS — rechargée à chaud
+      - ./acme.vps.json:/acme.json                         # Certificats Let's Encrypt VPS (chmod 600, gitignored)
+
+    networks:
+      - proxy
+
+    labels:
+      # Le dashboard Traefik n'est pas exposé publiquement sur le VPS
+      - "traefik.enable=false"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    name: proxy
+    driver: bridge

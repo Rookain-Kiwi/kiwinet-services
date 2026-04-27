@@ -17,18 +17,27 @@ Point d'entrée unique de la VM. Aucun service n'est exposé publiquement sans p
 
 ## Structure
 
+Ce répertoire contient deux configurations Traefik indépendantes, une par hôte cible.
+
 ```
 traefik/
-├── docker-compose.yml
-├── traefik.yml         # Config statique — restart requis si modifié
-├── dynamic.yml         # Config dynamique — middlewares, routers natifs VM
-├── acme.json           # Certificats TLS (chmod 600, gitignored)
-└── .htpasswd           # Auth basic dashboard (gitignored)
+├── docker-compose.yml      # Freebox Delta (VM ARM64)
+├── traefik.yml             # Config statique Freebox
+├── dynamic.yml             # Config dynamique Freebox
+├── acme.json               # Certificats TLS Freebox (chmod 600, gitignored)
+├── .htpasswd               # Auth basic dashboard Freebox (gitignored)
+│
+├── docker-compose.vps.yml  # VPS Scaleway (AMD64)
+├── traefik.vps.yml         # Config statique VPS
+├── dynamic.vps.yml         # Config dynamique VPS
+└── acme.vps.json           # Certificats TLS VPS (chmod 600, gitignored)
 ```
 
 ---
 
 ## Déploiement
+
+### Freebox Delta (VM ARM64)
 
 ```bash
 cd /opt/kiwinet-services/traefik
@@ -46,9 +55,29 @@ docker compose restart
 docker restart traefik
 ```
 
+### VPS Scaleway (AMD64)
+
+```bash
+cd /opt/kiwinet-services/traefik
+
+# Permissions obligatoires avant premier démarrage
+chmod 600 acme.vps.json
+
+# Démarrage
+docker compose -f docker-compose.vps.yml up -d
+
+# Après modification de traefik.vps.yml
+docker compose -f docker-compose.vps.yml restart
+
+# Après modification de dynamic.vps.yml
+docker restart traefik
+```
+
 ---
 
 ## Fichiers secrets à créer avant premier démarrage
+
+### Freebox
 
 `acme.json` — fichier vide avec permissions strictes :
 ```bash
@@ -61,11 +90,22 @@ htpasswd -nB <utilisateur> >> traefik/.htpasswd
 chmod 600 traefik/.htpasswd
 ```
 
+### VPS Scaleway
+
+`acme.vps.json` — fichier vide avec permissions strictes :
+```bash
+touch acme.vps.json && chmod 600 acme.vps.json
+```
+
+Le dashboard Traefik n'est pas exposé sur le VPS — pas de `.htpasswd` requis.
+
 ---
 
 ## Middlewares disponibles
 
-Définis dans `dynamic.yml`, référencés via `@file` depuis les labels Docker.
+Définis dans `dynamic.yml` (Freebox) et `dynamic.vps.yml` (VPS), référencés via `@file` depuis les labels Docker.
+
+### Freebox (`dynamic.yml`)
 
 | Middleware             | Usage                              |
 |------------------------|------------------------------------|
@@ -73,6 +113,13 @@ Définis dans `dynamic.yml`, référencés via `@file` depuis les labels Docker.
 | `secure-headers@file`  | Services publics                   |
 | `rate-limit@file`      | Endpoints publics                  |
 | `ha-forwardproto@file` | Home Assistant (X-Forwarded-Proto) |
+
+### VPS Scaleway (`dynamic.vps.yml`)
+
+| Middleware            | Usage             |
+|-----------------------|-------------------|
+| `secure-headers@file` | Services publics  |
+| `rate-limit@file`     | Endpoints publics |
 
 ---
 
