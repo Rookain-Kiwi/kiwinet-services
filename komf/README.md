@@ -38,15 +38,16 @@ komf/
 
 ---
 
-## Fichier `.env` à créer sur la VM
+## Fichier `config/application.yml` à compléter sur la VM
 
-```bash
-cat > .env << 'EOF'
-KOMF_KOMGA_API_KEY=<clé_api_komga>
-EOF
+Les credentials sont à renseigner directement dans le fichier `config/application.yml` sur la VM :
+
+```yaml
+komgaUser: "admin@kiwinet.me"
+komgaPassword: ""
 ```
 
-La clé API se génère dans Komga → **Mon Compte → Clés API**.
+Le fichier `.env` n'est plus nécessaire pour Komf.
 
 ---
 

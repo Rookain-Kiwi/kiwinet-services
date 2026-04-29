@@ -1,6 +1,7 @@
 komga:
   baseUri: "http://komga:25600"
-  apiKey: ${KOMF_KOMGA_API_KEY}
+  komgaUser: "admin@kiwinet.me"
+  komgaPassword: "<mot_de_passe_admin_komga>"
   eventListener:
     enabled: true
     # Écoute uniquement la bibliothèque Mangas
