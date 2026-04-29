@@ -1,0 +1,58 @@
+###############################################################################
+# komf/docker-compose.yml : Komga Metadata Fetcher
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : sndxr/komf (officielle, compatible linux/arm64)
+# Accès   : interne uniquement — pas d'exposition publique
+###############################################################################
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # KOMF : Récupération automatique de métadonnées pour Komga
+  # Se connecte à Komga via API key — pas de port exposé publiquement
+  # Détecte automatiquement les nouvelles séries et met à jour les métadonnées
+  # Périmètre : bibliothèque Mangas uniquement (MangaUpdates, AniList, MangaDex)
+  # BD franco-belge : géré séparément via BedethequeKomga (script ponctuel)
+  # ───────────────────────────────────────────────────────────────────────────
+  komf:
+    image: sndxr/komf:latest
+    container_name: komf
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - komf-config:/config
+    networks:
+      - proxy
+    environment:
+      # Connexion Komga
+      KOMF_KOMGA_BASE_URI: "http://komga:25600"
+      KOMF_KOMGA_API_KEY: ${KOMF_KOMGA_API_KEY}
+      # Écoute des événements Komga — uniquement sur la bibliothèque Mangas
+      KOMF_KOMGA_EVENT_LISTENER_ENABLED: "true"
+      KOMF_KOMGA_EVENT_LISTENER_LIBRARY_FILTER: "0Q7MZKV1AFR66"
+      # Sources de métadonnées — Mangas
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_MANGA_UPDATES_ENABLED: "true"
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_MANGA_UPDATES_PRIORITY: "10"
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_ANI_LIST_ENABLED: "true"
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_ANI_LIST_PRIORITY: "20"
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_MANGA_DEX_ENABLED: "true"
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_MANGA_DEX_PRIORITY: "30"
+      # ComicVine désactivé — clé API non configurée
+      # Activer avec KOMF_METADATA_PROVIDERS_COMIC_VINE_API_KEY quand disponible
+      KOMF_METADATA_PROVIDERS_DEFAULT_PROVIDERS_COMIC_VINE_ENABLED: "false"
+      # Mode de mise à jour : écriture ComicInfo.xml dans les CBZ
+      # Les PDF sont mis à jour via API uniquement (pas de ComicInfo.xml possible)
+      KOMF_KOMGA_UPDATE_MODES: "API,COMIC_INFO"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# komf-config : base de données SQLite + configuration Komf
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  komf-config:
