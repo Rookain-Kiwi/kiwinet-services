@@ -5,6 +5,9 @@
 # Variables d'environnement — ne jamais versionner
 .env
 
+# Les credentials de Komga contenus dans le yaml — ne jamais versionner
+komf/config/application.yml
+
 # Certificats Let's Encrypt — régénérés automatiquement par Traefik
 traefik/acme.json
 traefik/acme.vps.json
