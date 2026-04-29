@@ -1,0 +1,48 @@
+###############################################################################
+# komga/docker-compose.yml : Serveur de BD, Mangas & Comics
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : gotson/komga (officielle, compatible linux/arm64)
+# Accès   : komga.kiwinet.me (HTTPS via Traefik → port 8080 interne)
+###############################################################################
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # KOMGA : Serveur de bibliothèque BD/Mangas/Comics
+  # Collection sur NAS Freebox (CIFS) montée en lecture seule
+  # Base de données H2 embarquée dans le volume komga-config
+  # ───────────────────────────────────────────────────────────────────────────
+  komga:
+    image: gotson/komga:latest
+    container_name: komga
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Configuration et base de données H2 (métadonnées, utilisateurs, progression)
+      - komga-config:/config
+      # Collection BD/Mangas sur NAS Freebox — lecture seule
+      # ⚠️  Le mount CIFS /mnt/Kodi doit être actif sur la VM (via /etc/fstab)
+      - /mnt/Kodi/Lecture:/data:ro
+    networks:
+      - proxy
+    labels:
+      # Exposition HTTPS via Traefik : certificat Let's Encrypt
+      - "traefik.enable=true"
+      - "traefik.http.routers.komga.rule=Host(`komga.kiwinet.me`)"
+      - "traefik.http.routers.komga.entrypoints=websecure"
+      - "traefik.http.routers.komga.tls.certresolver=letsencrypt"
+      - "traefik.http.services.komga.loadbalancer.server.port=8080"
+      - "traefik.http.routers.komga.middlewares=secure-headers@file"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# komga-config : données persistantes (H2, config Spring Boot)
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  komga-config:
