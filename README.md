@@ -31,10 +31,20 @@ kiwinet-services/
 ├── minecraft/
 │   ├── docker-compose.yml
 │   └── .env                    # RCON_PASSWORD (gitignored)
-└── ha/
-    ├── docker-compose.yml
-    ├── mosquitto/config/mosquitto.conf
-    └── config/                 # Données HA (gitignored)
+├── ha/
+│   ├── docker-compose.yml
+│   ├── mosquitto/config/mosquitto.conf
+│   └── config/                 # Données HA (gitignored)
+├── komga/
+│   ├── docker-compose.yml
+│   └── .env                    # Credentials admin (gitignored)
+├── komf/
+│   ├── docker-compose.yml
+│   ├── config/
+│   │   ├── application.yml           # Config Komf (non versionné, contient credentials)
+│   │   └── application.yml.template  # Template versionné avec placeholders
+│   └── .env                          # Fichier vide requis
+└── bedetheque-komga/           # Chemin VM : /opt/kiwinet-services/bedetheque-komga/
 ```
 
 ---
@@ -50,6 +60,8 @@ cd traefik && docker compose up -d
 cd plex      && docker compose up -d
 cd minecraft && docker compose up -d
 cd ha        && docker compose up -d
+cd komga     && docker compose up -d
+cd komf      && docker compose up -d
 ```
 
 ---
@@ -70,9 +82,12 @@ cd <service> && docker compose up -d --force-recreate
 
 ## Services
 
-| Service                    | Sous-dossier | URL                          | README                                       |
-|----------------------------|--------------|------------------------------|----------------------------------------------|
-| Traefik                    | `traefik/`   | `traefik.kiwinet.me`         | [traefik/README.md](./traefik/README.md)     |
-| Plex                       | `plex/`      | `plex.kiwinet.me`            | [plex/README.md](./plex/README.md)           |
-| Minecraft                  | `minecraft/` | `minecraft.kiwinet.me:25565` | [minecraft/README.md](./minecraft/README.md) |
-| Home Assistant + Mosquitto | `ha/`        | `hub.kiwinet.me`             | [ha/README.md](./ha/README.md)               |
+| Service                    | Sous-dossier        | URL                          | README                                       |
+|----------------------------|---------------------|------------------------------|----------------------------------------------|
+| Traefik                    | `traefik/`          | `traefik.kiwinet.me`         | [traefik/README.md](./traefik/README.md)     |
+| Plex                       | `plex/`             | `plex.kiwinet.me`            | [plex/README.md](./plex/README.md)           |
+| Minecraft                  | `minecraft/`        | `minecraft.kiwinet.me:25565` | [minecraft/README.md](./minecraft/README.md) |
+| Home Assistant + Mosquitto | `ha/`               | `hub.kiwinet.me`             | [ha/README.md](./ha/README.md)               |
+| Komga                      | `komga/`            | `komga.kiwinet.me`           | [komga/README.md](./komga/README.md)         |
+| Komf                       | `komf/`             | interne (`172.18.0.x:8085`)  | [komf/README.md](./komf/README.md)           |
+| BedethequeKomga            | `bedetheque-komga/` | —                            | —                                            |

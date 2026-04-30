@@ -1,13 +1,20 @@
 komga:
   baseUri: "http://komga:25600"
-  komgaUser: "admin@kiwinet.me"
-  komgaPassword: "<mot_de_passe_admin_komga>"
+  komgaUser: "KOMGA_USER"
+  komgaPassword: "KOMGA_PASSWORD"
   eventListener:
     enabled: true
-    # Écoute uniquement la bibliothèque Mangas
-    # ID Bandes Dessinées : 0Q7MZDD9YFTCG (géré par BedethequeKomga)
-    libraryFilter:
-      - "0Q7MZKV1AFR66"
+    # libraryFilter intentionnellement commenté.
+    # Avec un filtre actif (même ID valide), Komf ne traite rien — cause inconnue,
+    # comportement observé et non documenté upstream.
+    # Sans filtre, Komf traite toutes les bibliothèques :
+    # les BD franco-belges ne matchent sur aucune source manga → pas de pollution.
+    # Seul risque : recréation d'une bibliothèque BD (nouveaux IDs = Komf considère tout comme nouveau).
+    # IDs de référence (à mettre à jour si les bibliothèques sont recrées) :
+    #   Bandes Dessinées : 0Q7PKFTK2FT23  (géré par BedethequeKomga)
+    #   Mangas           : 0Q7PT6ZFTFX05
+    # libraryFilter:
+    #   - "0Q7PT6ZFTFX05"
   updateModes:
     - API
     - COMIC_INFO
@@ -16,6 +23,9 @@ database:
   file: /config/database.sqlite
 
 metadataProviders:
+  # Clé API ComicVine — doit être au niveau racine de metadataProviders,
+  # PAS sous defaultProviders.comicVine.apiKey (ignoré par Komf).
+  comicVineApiKey: "COMICVINE_API_KEY"
   defaultProviders:
     mangaUpdates:
       priority: 10
@@ -34,8 +44,10 @@ metadataProviders:
       priority: 40
       enabled: false
     comicVine:
-      # Activer avec comicVineApiKey quand une clé sera disponible
-      priority: 50
+      # Désactivé volontairement : BedethequeKomga couvre mieux les BD franco-belges.
+      # Clé API configurée sous metadataProviders.comicVineApiKey (niveau racine).
+      # MangaBaka également désactivé : génère des WARN au démarrage sans base de données locale.
+      priority: 15
       enabled: false
 
 server:
