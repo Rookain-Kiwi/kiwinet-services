@@ -6,20 +6,16 @@
 # Accès   : calibre.kiwinet.me (HTTPS via Traefik → port 8083 interne)
 #
 # Architecture bibliothèque :
-#   - metadata.db   → ./config (bind mount local VM, hors CIFS)
-#   - Fichiers EPUB → /mnt/Kodi/Lecture/Livres (CIFS, lecture/écriture)
+#   - metadata.db + config → ./config (bind mount local VM)
+#   - Fichiers ebooks      → ./books  (bind mount local VM)
 #
-# ⚠️  Le CIFS (SMB) est incompatible avec le locking exclusif SQLite.
-#     La base Calibre ne peut pas résider sur le NAS Freebox.
-#     "Separate Book Files from Library" doit être activé dans l'interface.
-#     Les fichiers ebooks sont en lecture/écriture pour permettre l'import
-#     et l'organisation de l'arborescence par Calibre-Web.
+# Les ebooks ne sont PAS hébergés sur le NAS Freebox — stockage local VM.
+# Alimentation exclusivement via l'interface web Calibre-Web.
 ###############################################################################
 services:
   # ───────────────────────────────────────────────────────────────────────────
   # CALIBRE-WEB : Interface web pour bibliothèque Calibre (EPUB, PDF, MOBI)
-  # Base de données SQLite dans ./config (local VM, persistant hors CIFS)
-  # Fichiers ebooks sur NAS Freebox (CIFS) en lecture/écriture
+  # Stockage intégralement local — aucune dépendance CIFS/NAS
   # DOCKER_MODS active Calibre en arrière-plan pour la conversion de formats
   # ───────────────────────────────────────────────────────────────────────────
   calibre-web:
@@ -36,14 +32,10 @@ services:
       - DOCKER_MODS=linuxserver/mods:universal-calibre
 
     volumes:
-      # Configuration et base de données SQLite (local VM — jamais sur CIFS)
-      # Persiste entre les recreations du conteneur (bind mount, pas volume nommé)
+      # Configuration et base de données SQLite (persistant, local VM)
       - ./config:/config
-      # Fichiers ebooks sur NAS Freebox — lecture/écriture
-      # ⚠️  Le mount CIFS /mnt/Kodi doit être actif sur la VM (via Ansible)
-      # ⚠️  "Separate Book Files from Library" doit être activé dans l'interface
-      # ⚠️  Le metadata.db Calibre ne doit PAS résider ici (incompatibilité CIFS/SQLite)
-      - /mnt/Kodi/Lecture/Livres:/books
+      # Bibliothèque ebooks — stockage local VM (hors NAS, hors CIFS)
+      - ./books:/books
 
     networks:
       - proxy
