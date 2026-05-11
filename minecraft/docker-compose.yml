@@ -11,6 +11,7 @@ services:
   # ───────────────────────────────────────────────────────────────────────────
   # MINECRAFT : Serveur Java Edition (Vanilla) avec RCON activé
   # TCP brut routé via Traefik en passthrough sur le port 25565
+  # IP fixe 172.18.0.10 déclarée dans dynamic.yml (Traefik)
   # ───────────────────────────────────────────────────────────────────────────
   minecraft:
     image: itzg/minecraft-server:latest
@@ -19,8 +20,7 @@ services:
     environment:
       # Acceptation EULA Mojang — obligatoire
       EULA: "TRUE"
-      # Vanilla le temps que PaperMC supporte la version 26.1
-      # Repasser en TYPE: "PAPER" dès que Paper publie le support 26.1
+      # Vanilla — PaperMC non retenu (serveur privé sans plugins)
       TYPE: "VANILLA"
       VERSION: "26.1"
       MEMORY: "4G"
@@ -44,7 +44,8 @@ services:
     volumes:
       - minecraft-data:/data
     networks:
-      - proxy
+      proxy:
+        ipv4_address: 172.18.0.10   # IP fixe — référencée dans traefik/dynamic.yml
     labels:
       # HTTP Traefik désactivé — le routage Minecraft passe par TCP passthrough (traefik/dynamic.yml)
       - "traefik.enable=false"

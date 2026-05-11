@@ -84,9 +84,9 @@ tcp:
 
   services:
 
-    # Minecraft tourne dans Docker sur le réseau proxy
-    # Traefik forward le TCP vers le conteneur via son nom de service
+    # Minecraft : IP fixe 172.18.0.10 assignée dans minecraft/docker-compose.yml
+    # IP statique pour éviter les dérives après redémarrage du conteneur
     minecraft:
       loadBalancer:
         servers:
-          - address: "minecraft:25565"
+          - address: "172.18.0.10:25565"
