@@ -33,7 +33,7 @@ services:
       MAX_PLAYERS: "6"
       WHITE_LIST: "true"
       ENFORCE_WHITELIST: "true"
-      MOTD: "§2Bienvenue sur le serveur privé Kiwinet!"
+      MOTD: "§2Bienvenue sur le serveur privé!"
       LEVEL: "kiwinet"
       # RCON : accès console à distance sans entrer dans le conteneur
       ENABLE_RCON: "true"
