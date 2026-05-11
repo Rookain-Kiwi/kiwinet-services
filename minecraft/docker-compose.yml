@@ -22,7 +22,7 @@ services:
       EULA: "TRUE"
       # Vanilla — PaperMC non retenu (serveur privé sans plugins)
       TYPE: "VANILLA"
-      VERSION: "26.1"
+      VERSION: "26.1.2"
       MEMORY: "4G"
       TZ: "Europe/Paris"
       # Applique les variables ci-dessous sur server.properties à chaque démarrage
