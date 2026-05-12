@@ -26,7 +26,7 @@ providers:
     network: proxy
 
   file:
-    filename: /etc/traefik/dynamic.yml
+    directory: /etc/traefik/dynamic/
     watch: true   # Rechargement à chaud sans restart
 
 # ─────────────────────────────────────────────────────────────────────────────

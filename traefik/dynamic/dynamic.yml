@@ -1,0 +1,92 @@
+# traefik/dynamic.yml : Configuration dynamique Traefik
+# Ce fichier est rechargé à chaud, aucun redémarrage requis.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP : Middlewares, routers et services HTTP/HTTPS
+# ─────────────────────────────────────────────────────────────────────────────
+http:
+  middlewares:
+
+    # Protection : dashboard Traefik, Prometheus, Grafana.
+    # Identifiants stockés dans .htpasswd (gitignored) — générer avec :
+    #   htpasswd -nB <utilisateur> >> traefik/.htpasswd
+    auth-basic:
+      basicAuth:
+        usersFile: /etc/traefik/.htpasswd
+
+    # Headers de sécurité HTTP pour les services exposés publiquement.
+    secure-headers:
+      headers:
+        stsSeconds: 31536000          # HSTS 1 an
+        stsIncludeSubdomains: true
+        stsPreload: true
+        frameDeny: true               # Anti-clickjacking
+        contentTypeNosniff: true      # Anti-MIME sniffing
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Powered-By: ""            # Masquer la stack technique
+          Server: ""
+
+    # Limitation de débit pour les endpoints publics.
+    rate-limit:
+      rateLimit:
+        average: 100                  # Requêtes/seconde en régime normal
+        burst: 50                     # Pic autorisé au-delà de la moyenne
+
+    # Home Assistant : transmet le protocole réel au conteneur
+    # Nécessaire pour que HA reconnaisse les connexions HTTPS
+    # et génère des URLs correctes (webhooks, Cast, app mobile)
+    ha-forwardproto:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+  routers:
+
+    # Home Assistant : domotique locale exposée via HTTPS.
+    # HA tourne en network_mode: host — labels Docker non fonctionnels en mode host,
+    # la route est donc déclarée ici manuellement.
+    # ⚠️  Vérifier l'IP : docker network inspect proxy | grep Gateway
+    homeassistant:
+      rule: "Host(`hub.kiwinet.me`)"
+      entryPoints:
+        - websecure
+      service: homeassistant
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - secure-headers
+        - ha-forwardproto
+
+  services:
+
+    # Home Assistant en network_mode: host
+    # 172.18.0.1 = gateway réseau proxy = IP VM vue depuis Traefik
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://172.18.0.1:8123"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TCP : Services non-HTTP routés en passthrough
+# ─────────────────────────────────────────────────────────────────────────────
+tcp:
+  routers:
+
+    # Minecraft Java Edition : TCP brut, pas de TLS Traefik
+    # Le client Minecraft gère son propre protocole de connexion
+    minecraft:
+      rule: "HostSNI(`*`)"
+      entryPoints:
+        - minecraft
+      service: minecraft
+
+  services:
+
+    # Minecraft : IP fixe 172.18.0.10 assignée dans minecraft/docker-compose.yml
+    # IP statique pour éviter les dérives après redémarrage du conteneur
+    minecraft:
+      loadBalancer:
+        servers:
+          - address: "172.18.0.10:25565"
