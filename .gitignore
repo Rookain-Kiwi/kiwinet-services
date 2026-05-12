@@ -26,4 +26,7 @@ ha/mosquitto/log/
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp
-*.swotraefik/dynamic/dynamic.seedbox.yml
+*.swo
+
+# ── SeedBox ───────────────────────────────────────────────────────────────────
+traefik/dynamic/dynamic.seedbox.yml

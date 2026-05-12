@@ -24,7 +24,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro  # API Docker — découverte automatique des services
       - ./traefik.yml:/etc/traefik/traefik.yml:ro     # Config statique — requiert restart si modifiée
-      - /opt/seedbox/traefik-dynamic.yml:/etc/traefik/dynamic/dynamic.seedbox.yml:ro
       - ./dynamic/:/etc/traefik/dynamic/:ro           # Config dynamique — rechargée à chaud
       - ./acme.json:/acme.json                         # Stockage des certificats Let's Encrypt
       - ./.htpasswd:/etc/traefik/.htpasswd:ro          # Identifiants basic auth (gitignored)
