@@ -15,6 +15,10 @@ services:
     image: plexinc/pms-docker:latest
     container_name: plex
     restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
     ports:
       # Exposition LAN directe — permet la découverte GDM et la lecture locale
       # sans transiter par Traefik (corrige la lecture audio sur Android TV)
