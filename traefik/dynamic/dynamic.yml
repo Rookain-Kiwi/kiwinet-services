@@ -50,10 +50,6 @@ http:
       headers:
         customRequestHeaders:
           X-Forwarded-Proto: "https"
-          
-  serversTransports:
-    retroarch-transport:
-      insecureSkipVerify: true
 
   routers:
 

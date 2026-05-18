@@ -55,8 +55,7 @@ services:
       - "traefik.http.routers.retroarch.tls.certresolver=letsencrypt"
       - "traefik.http.routers.retroarch.middlewares=secure-headers@file"
       - "traefik.http.services.retroarch.loadbalancer.server.port=3000"
-      - "traefik.http.services.retroarch.loadbalancer.server.scheme=https"
-      - "traefik.http.services.retroarch.loadbalancer.serverstransport=retroarch-transport@file"
+      - "traefik.http.services.retroarch.loadbalancer.server.scheme=http"
       - "traefik.http.serversTransports.retroarch-transport.insecureSkipVerify=true"
 
 networks:
