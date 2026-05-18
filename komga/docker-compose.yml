@@ -31,7 +31,7 @@ services:
       - "traefik.http.routers.komga.entrypoints=websecure"
       - "traefik.http.routers.komga.tls.certresolver=letsencrypt"
       - "traefik.http.services.komga.loadbalancer.server.port=25600"
-      - "traefik.http.routers.komga.middlewares=secure-headers@file"
+      - "traefik.http.routers.komga.middlewares=secure-headers@file,komga-headers@file"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
