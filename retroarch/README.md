@@ -42,7 +42,7 @@ Le container utilise LLVMPipe (rendu CPU logiciel) — suffisant pour les systè
 
 - Réseau Docker `proxy` existant
 - Traefik opérationnel avec le resolver `letsencrypt`
-- ROMs déposées dans `./roms/` (non versionnées — voir section ci-dessous)
+- ROMs déposées dans `/mnt/Libraries/Retro/{amstrad,oric,amiga}/` sur le NAS (voir section ci-dessous)
 - BIOS Amiga déposé dans `./config/retroarch/system/` (voir section BIOS)
 
 ---
@@ -55,12 +55,15 @@ retroarch/
 ├── config/                     # Données persistantes RetroArch (gitignored)
 │   └── retroarch/
 │       ├── retroarch.cfg       # Configuration principale
-│       ├── system/             # BIOS — déposer ici
-│       └── saves/              # Sauvegardes
-└── roms/                       # ROMs par plateforme (gitignored)
-    ├── amstrad/                # Amstrad CPC — .dsk, .cdt, .cpr
-    ├── oric/                   # Oric Atmos — .tap, .dsk
-    └── amiga/                  # Amiga — .adf, .lha, .hdf
+│       └── system/             # BIOS — déposer ici
+├── saves/                      # Sauvegardes (local VM, gitignored)
+└── states/                     # States (local VM, gitignored)
+
+# ROMs — stockées sur le NAS Freebox (hors repo)
+/mnt/Libraries/Retro/
+├── amstrad/                    # Amstrad CPC — .dsk, .cdt, .cpr
+├── oric/                       # Oric Atmos — .tap, .dsk
+└── amiga/                      # Amiga — .adf, .lha, .hdf
 ```
 
 ---
@@ -127,18 +130,32 @@ docker logs retroarch -f
 
 ## Alimenter les ROMs
 
-Les ROMs sont montées depuis `./roms/` sur la VM — elles ne transitent pas par
-le NAS Freebox (incompatibilité CIFS/LLVMPipe non testée, stockage local préféré).
+Les ROMs sont stockées sur le NAS Freebox via le montage CIFS existant (`/mnt/Kodi`).
+Aucune configuration `fstab` supplémentaire n'est nécessaire — le montage couvre
+l'intégralité du partage.
+
+Créer la structure côté NAS avant le premier démarrage :
 
 ```bash
-# Depuis la machine locale, copier via SCP
-scp ma_rom.dsk rookain@kiwinet-vm:/opt/kiwinet-services/retroarch/roms/amstrad/
-
-# Ou via rsync pour un lot
-rsync -av roms/ rookain@kiwinet-vm:/opt/kiwinet-services/retroarch/roms/
+# Sur la VM
+mkdir -p /mnt/Libraries/Retro/{amstrad,oric,amiga}
 ```
 
-RetroArch détecte automatiquement les ROMs ajoutées via le scanner de la playlist.
+Déposer ensuite les ROMs directement depuis la machine locale via SCP ou depuis
+l'interface NAS Freebox :
+
+```bash
+# Depuis la machine locale
+scp ma_rom.dsk rookain@<vm>:/mnt/Libraries/Retro/amstrad/
+
+# Ou via rsync pour un lot
+rsync -av roms/amstrad/ rookain@<vm>:/mnt/Libraries/Retro/amstrad/
+```
+
+Les sauvegardes (`./saves/`) et states (`./states/`) restent en local sur la VM —
+l'écriture fréquente sur CIFS est déconseillée (risque de corruption).
+
+RetroArch détecte automatiquement les ROMs ajoutées via le scanner de playlist.
 
 ---
 

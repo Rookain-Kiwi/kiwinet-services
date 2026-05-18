@@ -46,10 +46,9 @@ kiwinet-services/
 │   └── .env                          # Fichier vide requis
 ├── retroarch/
 │   ├── docker-compose.yml
-│   └── roms/                   # ROMs par plateforme (gitignored)
-│       ├── amstrad/
-│       ├── oric/
-│       └── amiga/
+│   ├── saves/                  # Sauvegardes (local VM, gitignored)
+│   └── states/                 # States (local VM, gitignored)
+│   # ROMs → /mnt/Libraries/Retro/{amstrad,oric,amiga}/ (NAS Freebox)
 └── bedetheque-komga/           # Chemin VM : /opt/kiwinet-services/bedetheque-komga/
 ```
 

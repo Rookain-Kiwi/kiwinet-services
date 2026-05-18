@@ -31,9 +31,15 @@ services:
       - TZ=Europe/Paris
     volumes:
       - ./config:/config
-      - ./roms/amstrad:/config/retroarch/roms/amstrad
-      - ./roms/oric:/config/retroarch/roms/oric
-      - ./roms/amiga:/config/retroarch/roms/amiga
+      # ROMs depuis le NAS Freebox (montage CIFS /mnt/Kodi — lecture seule)
+      # Créer les sous-dossiers côté NAS avant le démarrage :
+      #   /mnt/Libraries/ROMs/amstrad, /mnt/Libraries/ROMs/oric, /mnt/Libraries/ROMs/amiga
+      - /mnt/Libraries/ROMs/amstrad:/config/retroarch/roms/amstrad:ro
+      - /mnt/Libraries/ROMs/oric:/config/retroarch/roms/oric:ro
+      - /mnt/Libraries/ROMs/amiga:/config/retroarch/roms/amiga:ro
+      # Sauvegardes et states en local (écriture fréquente — CIFS déconseillé)
+      - ./saves:/config/retroarch/saves
+      - ./states:/config/retroarch/states
     shm_size: "1gb"
     restart: unless-stopped
     networks:
