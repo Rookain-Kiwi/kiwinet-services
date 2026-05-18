@@ -20,8 +20,8 @@ services:
       # Configuration et base de données H2 (métadonnées, utilisateurs, progression)
       - komga-config:/config
       # Collection BD/Mangas sur NAS Freebox — lecture seule
-      # ⚠️  Le mount CIFS /mnt/Kodi doit être actif sur la VM (via /etc/fstab)
-      - /mnt/Kodi/Lecture:/data:ro
+      # ⚠️  Le mount CIFS /mnt/Libraries doit être actif sur la VM (via /etc/fstab)
+      - /mnt/Libraries/Books:/data:ro
     networks:
       - proxy
     labels:
