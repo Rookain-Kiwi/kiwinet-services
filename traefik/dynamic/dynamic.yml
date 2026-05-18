@@ -28,6 +28,15 @@ http:
           X-Powered-By: ""            # Masquer la stack technique
           Server: ""
 
+    # Headers spécifiques à Komga : autorise les iframes pour le reader EPUB web.
+    # frameDeny doit être absent (pas de X-Frame-Options restrictif)
+    # frame-ancestors 'self' permet à Komga d'afficher ses propres iframes.
+    komga-headers:
+      headers:
+        customResponseHeaders:
+          X-Frame-Options: "SAMEORIGIN"
+          Content-Security-Policy: "frame-ancestors 'self' https://komga.kiwinet.me;"
+
     # Limitation de débit pour les endpoints publics.
     rate-limit:
       rateLimit:
