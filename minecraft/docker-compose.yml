@@ -17,6 +17,10 @@ services:
     image: itzg/minecraft-server:latest
     container_name: minecraft
     restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
     environment:
       # Acceptation EULA Mojang — obligatoire
       EULA: "TRUE"

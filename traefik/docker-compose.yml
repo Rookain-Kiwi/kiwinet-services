@@ -15,6 +15,10 @@ services:
     image: traefik:v3
     container_name: traefik
     restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
 
     ports:
       - "80:80"       # HTTP → redirigé vers HTTPS + HTTP Challenge Let's Encrypt

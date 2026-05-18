@@ -17,6 +17,10 @@ services:
     image: sndxr/komf:latest
     container_name: komf
     restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
     env_file: .env
     volumes:
       # Bind mount du répertoire de config — contient application.yml et database.sqlite
