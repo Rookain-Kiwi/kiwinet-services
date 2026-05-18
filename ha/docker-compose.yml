@@ -50,6 +50,10 @@ services:
     image: eclipse-mosquitto:latest
     container_name: mosquitto
     restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
     volumes:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/data:/mosquitto/data
