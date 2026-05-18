@@ -25,6 +25,10 @@ services:
   retroarch:
     image: lscr.io/linuxserver/retroarch:latest
     container_name: retroarch
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      # Nécessaire à la recréation du container — transparent au restart
+      - apparmor:unconfined
     environment:
       - PUID=1000
       - PGID=1000
