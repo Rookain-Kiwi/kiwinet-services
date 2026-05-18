@@ -32,10 +32,10 @@ services:
       # Données Plex : base de données, métadonnées, config — bind mount direct
       - /var/lib/plexmediaserver:/config
       # Médias sur NAS Freebox (montages CIFS persistants via /etc/fstab)
-      - /mnt/Kodi/Séries TV:/media/series
-      - /mnt/Kodi/Films:/media/films
-      - /mnt/Kodi/Musique:/media/musique:ro
-      - /mnt/Kodi/Photos:/media/photos:ro
+      - /mnt/Libraries/TV Shows:/media/tv-shows
+      - /mnt/Libraries/Movies:/media/movies
+      - /mnt/Libraries/Music:/media/music:ro
+      - /mnt/Libraries/Photos:/media/photos:ro
       # Transcodage temporaire en RAM
       - /tmp/plex-transcode:/transcode
     networks:
