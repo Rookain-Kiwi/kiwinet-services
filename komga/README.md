@@ -77,9 +77,11 @@ La bibliothèque est montée depuis le NAS Freebox via CIFS (`/etc/fstab`), en *
 | Collection | Format actuel | Format cible |
 |---|---|---|
 | Mangas | CBZ (convertis depuis PDF à 150 DPI) | — |
-| Bandes Dessinées | PDF | CBZ à 200 DPI (format album plus grand) |
+| Bandes Dessinées | PDF | CBZ (extraction native via `pdfimages`) |
 
-La conversion PDF→CBZ est réalisée via le script `convert_pdf_to_cbz.sh` (`pdftoppm` + `zip`). Le gain de réactivité à distance est significatif (validé sur BLAME!).
+La conversion PDF→CBZ est réalisée via le script `convert_pdf_to_cbz.sh`. Il extrait les images en qualité native depuis le PDF (`pdfimages`) sans recompression — le DPI d'origine est préservé. Le gain de réactivité à distance est significatif (validé sur BLAME!).
+
+> ⚠️ Certains PDFs contiennent des images haute résolution (ex. 1198 PPI) — dans ce cas `pdftoppm` sous-échantillonne et dégrade la qualité. `pdfimages -j` extrait les JPEG natifs sans perte.
 
 ---
 
@@ -125,6 +127,10 @@ URL du catalogue OPDS :
 ```
 https://komga.kiwinet.me/opds/v1.2/catalog
 ```
+
+### Reader EPUB web
+
+Le reader EPUB dans le navigateur nécessite le middleware `komga-headers@file` (Traefik) pour autoriser les iframes. Sans ce middleware, le reader affiche une erreur `X-Frame-Options` et reste blanc. Les formats CBZ et PDF ne sont pas affectés.
 
 ---
 

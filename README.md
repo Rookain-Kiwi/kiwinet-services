@@ -94,5 +94,3 @@ cd <service> && docker compose up -d --force-recreate
 | Home Assistant + Mosquitto | `ha/`               | `hub.kiwinet.me`             | [ha/README.md](./ha/README.md)                   |
 | Komga                      | `komga/`            | `komga.kiwinet.me`           | [komga/README.md](./komga/README.md)             |
 | Komf                       | `komf/`             | interne (`172.18.0.x:8085`)  | [komf/README.md](./komf/README.md)               |
-| Calibre-Web                | `calibre/`          | `calibre.kiwinet.me`         | [calibre/README.md](./calibre/README.md)         |
-| BedethequeKomga            | `bedetheque-komga/` | —                            | —                                                |

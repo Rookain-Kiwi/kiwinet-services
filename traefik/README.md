@@ -107,12 +107,13 @@ Définis dans `dynamic.yml` (Freebox) et `dynamic.vps.yml` (VPS), référencés 
 
 ### Freebox (`dynamic.yml`)
 
-| Middleware             | Usage                              |
-|------------------------|------------------------------------|
-| `auth-basic@file`      | Dashboard Traefik                  |
-| `secure-headers@file`  | Services publics                   |
-| `rate-limit@file`      | Endpoints publics                  |
-| `ha-forwardproto@file` | Home Assistant (X-Forwarded-Proto) |
+| Middleware               | Usage                                 |
+|--------------------------|---------------------------------------|
+| `auth-basic@file`        | Dashboard Traefik                     |
+| `secure-headers@file`    | Services publics                      |
+| `komga-headers@file`     | Komga — reader EPUB web (iframes CSP) |
+| `rate-limit@file`        | Endpoints publics                     |
+| `ha-forwardproto@file`   | Home Assistant (X-Forwarded-Proto)    |
 
 ### VPS Scaleway (`dynamic.vps.yml`)
 
