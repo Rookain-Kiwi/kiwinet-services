@@ -84,18 +84,18 @@ guest,uid=rookain,gid=rookain,file_mode=0777,dir_mode=0777,vers=3.0,cache=strict
 
 | Volume conteneur  | Type Plex   |
 |-------------------|-------------|
-| `/media/films`    | Films       |
-| `/media/series`   | Séries TV   |
-| `/media/musique`  | Musique     |
+| `/media/movies`    | Movies      |
+| `/media/tv-shows`   | TV Shows   |
+| `/media/music`  | Music       |
 | `/media/photos`   | Photos      |
 
 ### Droits par bibliothèque
 
 | Volume conteneur  | Droits | Raison                                        |
 |-------------------|--------|-----------------------------------------------|
-| `/media/films`    | `rw`   | Écriture des versions optimisées              |
-| `/media/series`   | `rw`   | Écriture des versions optimisées              |
-| `/media/musique`  | `:ro`  | Lecture seule — pas de cas d'optimisation     |
+| `/media/movies`    | `rw`   | Écriture des versions optimisées              |
+| `/media/tv-shows`   | `rw`   | Écriture des versions optimisées              |
+| `/media/music`  | `:ro`  | Lecture seule — pas de cas d'optimisation     |
 | `/media/photos`   | `:ro`  | Lecture seule — photos et vidéos famille      |
 
 ---
@@ -107,8 +107,8 @@ Plex peut générer des versions allégées des médias ("Optimize for TV") pour
 Plex ne propose pas d'option de redirection du répertoire de stockage — les fichiers optimisés sont écrits directement dans l'arborescence des médias source, dans un sous-dossier dédié :
 
 ```
-/media/series/<Titre série>/Plex Versions/Optimized for TV/<Titre série>/
-/media/films/<Titre film>/Plex Versions/Optimized for TV/
+/media/tv-shows/<Titre série>/Plex Versions/Optimized for TV/<Titre série>/
+/media/movies/<Titre film>/Plex Versions/Optimized for TV/
 ```
 
 Ces fichiers sont stockés sur le NAS Freebox (3 To) et non sur le disque VM (120 Go).

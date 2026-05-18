@@ -21,7 +21,7 @@ Serveur de bibliothèque image dockerisé. Accessible via `komga.kiwinet.me`.
 | Architecture   | ARM AArch64                                   |
 | Base de données| H2 embarquée (volume `komga-config`)          |
 | Données config | Volume nommé `komga-config`                   |
-| Collection     | `/mnt/Kodi/Lecture` → `/data` (bind mount CIFS, `:ro`) |
+| Collection     | `/mnt/Libraries/Books` → `/data` (bind mount CIFS, `:ro`) |
 
 ---
 
