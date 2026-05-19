@@ -44,11 +44,6 @@ kiwinet-services/
 │   │   ├── application.yml           # Config Komf (non versionné, contient credentials)
 │   │   └── application.yml.template  # Template versionné avec placeholders
 │   └── .env                          # Fichier vide requis
-├── retroarch/
-│   ├── docker-compose.yml
-│   ├── saves/                  # Sauvegardes (local VM, gitignored)
-│   └── states/                 # States (local VM, gitignored)
-│   # ROMs → /mnt/Libraries/Retro/{amstrad,oric,amiga}/ (NAS Freebox)
 └── bedetheque-komga/           # Chemin VM : /opt/kiwinet-services/bedetheque-komga/
 ```
 
@@ -67,7 +62,6 @@ cd minecraft    && docker compose up -d
 cd ha           && docker compose up -d
 cd komga        && docker compose up -d
 cd komf         && docker compose up -d
-cd retroarch    && docker compose up -d
 ```
 
 ---
@@ -96,4 +90,3 @@ cd <service> && docker compose up -d --force-recreate
 | Home Assistant + Mosquitto | `ha/`               | `hub.kiwinet.me`              | [ha/README.md](./ha/README.md)                     |
 | Komga                      | `komga/`            | `komga.kiwinet.me`            | [komga/README.md](./komga/README.md)               |
 | Komf                       | `komf/`             | interne (`172.18.0.x:8085`)   | [komf/README.md](./komf/README.md)                 |
-| RetroArch                  | `retroarch/`        | `retroarch.kiwinet.me`            | [retroarch/README.md](./retroarch/README.md)       |
