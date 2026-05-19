@@ -77,6 +77,9 @@ http:
         servers:
           - url: "http://172.18.0.1:8123"
 
+  serversTransports:
+    retroarch-transport:
+      insecureSkipVerify: true
 # ─────────────────────────────────────────────────────────────────────────────
 # TCP : Services non-HTTP routés en passthrough
 # ─────────────────────────────────────────────────────────────────────────────
