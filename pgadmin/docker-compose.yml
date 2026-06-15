@@ -1,0 +1,42 @@
+services:
+  pgadmin:
+    # Image officielle PgAdmin 4 — interface web d'administration PostgreSQL
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      # Compte administrateur PgAdmin — email et mot de passe de connexion à l'interface web
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      # Mode serveur activé — authentification requise à chaque session
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      # Mot de passe maître désactivé — superflu en usage mono-utilisateur self-hosted
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      # Volume nommé — persiste la configuration des serveurs enregistrés dans PgAdmin
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      # proxy — permet à Traefik de router le trafic HTTPS entrant vers PgAdmin
+      # db — permet à PgAdmin d'atteindre le container postgres
+      - proxy
+      - db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.kiwinet.me`)"
+      - "traefik.http.routers.pgadmin.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+      # Obligatoire quand le container est sur plusieurs réseaux —
+      # indique à Traefik quel réseau utiliser pour joindre PgAdmin
+      # Sans cette directive, Traefik choisit un réseau au hasard et échoue
+      - "traefik.docker.network=proxy"
+
+volumes:
+  # Volume nommé géré par Docker — pas de bind mount, PgAdmin gère ses propres permissions
+  pgadmin-data:
+
+networks:
+  proxy:
+    external: true
+  db:
+    external: true
