@@ -1,0 +1,33 @@
+services:
+  postgres:
+    # Image officielle PostgreSQL 16 — variante Alpine pour l'empreinte minimale
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      # Utilisateur administrateur de l'instance (défini dans .env)
+      POSTGRES_USER: ${POSTGRES_USER}
+      # Mot de passe de l'utilisateur administrateur (défini dans .env)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Sous-répertoire de données explicite — évite le conflit de permissions
+      # au premier démarrage si le répertoire parent appartient à root
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Bind mount vers l'hôte — persistance des données hors cycle de vie du container
+      # Provisionné et chown 999:999 par Ansible (UID PostgreSQL dans l'image Alpine)
+      - /var/lib/postgresql/data:/var/lib/postgresql/data
+    networks:
+      # Réseau interne uniquement — aucun port exposé sur l'hôte
+      - db
+    healthcheck:
+      # pg_isready vérifie que le moteur accepte les connexions
+      # Permet aux services dépendants d'utiliser condition: service_healthy
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+networks:
+  # Réseau db déclaré externe — créé une fois sur l'hôte, partagé entre les stacks
+  db:
+    external: true
