@@ -30,3 +30,7 @@ ha/mosquitto/log/
 
 # ── SeedBox ───────────────────────────────────────────────────────────────────
 traefik/dynamic/dynamic.seedbox.yml
+
+# ── PosgreSQL ─────────────────────────────────────────────────────────────────
+postgres/.env
+pgadmin/.env
