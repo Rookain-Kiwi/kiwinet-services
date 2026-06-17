@@ -34,3 +34,4 @@ traefik/dynamic/dynamic.seedbox.yml
 # ── PosgreSQL ─────────────────────────────────────────────────────────────────
 postgres/.env
 pgadmin/.env
+searxng/.env

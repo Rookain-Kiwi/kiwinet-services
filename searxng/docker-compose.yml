@@ -1,0 +1,77 @@
+###############################################################################
+# searxng/docker-compose.yml : Méta-moteur de recherche privé
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : searxng/searxng (officielle, compatible linux/arm64)
+# Accès   : searxng.kiwinet.me (HTTPS via Traefik)
+# Redis   : cache interne, réseau searxng isolé (non exposé)
+###############################################################################
+services:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REDIS : Cache sessions et rate limiting SearXNG
+# Réseau interne searxng uniquement — non exposé à Traefik
+# ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: searxng-redis
+    restart: unless-stopped
+    security_opt:
+      - apparmor:unconfined
+    command: redis-server --save "" --appendonly no
+    networks:
+      - searxng
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SEARXNG : Méta-moteur de recherche
+# Expose ses résultats via Traefik sur searxng.kiwinet.me
+# Rate limiting activé pour éviter l'abus et les blocages sources
+# ─────────────────────────────────────────────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - ./config:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=https://searxng.kiwinet.me/
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=2
+    networks:
+      - proxy
+      - searxng
+    depends_on:
+      - redis
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.searxng.rule=Host(`searxng.kiwinet.me`)"
+      - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng.tls.certresolver=letsencrypt"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "traefik.http.routers.searxng.middlewares=secure-headers@file"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# proxy   : réseau Traefik partagé (externe)
+# searxng : réseau interne SearXNG ↔ Redis (isolé)
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
+  searxng:
+    internal: true
