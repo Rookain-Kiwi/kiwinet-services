@@ -27,7 +27,7 @@ services:
       # Vanilla — PaperMC non retenu (serveur privé sans plugins)
       TYPE: "VANILLA"
       VERSION: "26.1.2"
-      MEMORY: "4G"
+      MEMORY: "2G"
       TZ: "Europe/Paris"
       # Applique les variables ci-dessous sur server.properties à chaque démarrage
       OVERRIDE_SERVER_PROPERTIES: "true"
