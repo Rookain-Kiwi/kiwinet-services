@@ -81,14 +81,9 @@ engines:
     shortcut: gh
     disabled: false
 
-  - name: docker_hub
-    engine: docker_hub
-    shortcut: dh
-    disabled: false
-
   - name: stackexchange
     engine: stackexchange
-    shortcut: se
+    shortcut: stex
     disabled: false
 
 outgoing:
