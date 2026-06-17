@@ -16,6 +16,8 @@ services:
     container_name: komga
     restart: unless-stopped
     env_file: .env
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx512m
     security_opt:
       # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
       # Nécessaire à la recréation du container — transparent au restart
