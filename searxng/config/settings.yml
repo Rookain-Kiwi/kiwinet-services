@@ -5,7 +5,7 @@
 use_default_settings: true
 
 general:
-  instance_name: "Kiwinet Search"
+  instance_name: "Kiwinet Portal"
   privacypolicy_url: false
   donation_url: false
   contact_url: false
