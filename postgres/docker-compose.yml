@@ -12,12 +12,18 @@ services:
       # Sous-répertoire de données explicite — évite le conflit de permissions
       # au premier démarrage si le répertoire parent appartient à root
       PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      # Exposition restreinte à la loopback de l'hôte — requis pour les
+      # services en network_mode: host (ex. Home Assistant) qui ne peuvent
+      # pas résoudre le nom DNS "postgres" via le réseau Docker bridge db.
+      # Bindé sur 127.0.0.1 uniquement : aucune exposition LAN ou externe.
+      - "127.0.0.1:5432:5432"
     volumes:
       # Bind mount vers l'hôte — persistance des données hors cycle de vie du container
       # Provisionné et chown 999:999 par Ansible (UID PostgreSQL dans l'image Alpine)
       - /var/lib/postgresql/data:/var/lib/postgresql/data
     networks:
-      # Réseau interne uniquement — aucun port exposé sur l'hôte
+      # Réseau interne — accès pour les services sur réseau Docker bridge
       - db
     healthcheck:
       # pg_isready vérifie que le moteur accepte les connexions
