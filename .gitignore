@@ -1,12 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# kiwinet-infra/.gitignore
+# kiwinet-services/.gitignore
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Variables d'environnement — ne jamais versionner
 .env
-
-# Les credentials de Komga contenus dans le yaml — ne jamais versionner
-komf/config/application.yml
+*.env
 
 # Certificats Let's Encrypt — régénérés automatiquement par Traefik
 traefik/acme.json
@@ -15,13 +13,26 @@ traefik/acme.vps.json
 # Identifiants basic auth — générer avec : htpasswd -nB <utilisateur> >> traefik/.htpasswd
 traefik/.htpasswd
 
+# Credentials Komga contenus dans yaml — ne jamais versionner
+komf/config/application.yml
+
 # ── Home Assistant ────────────────────────────────────────────────────────────
 # Données HA persistantes — volumineuses et contiennent des secrets
 ha/config/
-
 # Données et logs Mosquitto
 ha/mosquitto/data/
 ha/mosquitto/log/
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
+postgres/.env
+pgadmin/.env
+searxng/.env
+
+# ── Synapse (Matrix) ──────────────────────────────────────────────────────────
+# Données Synapse persistantes — volumineuses et contiennent des secrets
+synapse/data/
+# Logs Synapse
+synapse/logs/
 
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
@@ -30,8 +41,3 @@ ha/mosquitto/log/
 
 # ── SeedBox ───────────────────────────────────────────────────────────────────
 traefik/dynamic/dynamic.seedbox.yml
-
-# ── PosgreSQL ─────────────────────────────────────────────────────────────────
-postgres/.env
-pgadmin/.env
-searxng/.env

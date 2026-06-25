@@ -1,0 +1,62 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  precise:
+    format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
+
+  json:
+    (): synapse.logging.JSONFormatter
+    # Default fields to include in JSON logs
+    default_fields:
+      server: kiwinet
+      component: synapse
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: json
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: precise
+    filename: /data/logs/synapse.log
+    maxBytes: 104857600  # 100MB
+    backupCount: 3
+
+loggers:
+  # Synapse core
+  synapse:
+    level: INFO
+    handlers: [console, file]
+
+  # Database (verbose)
+  synapse.storage:
+    level: INFO
+
+  # HTTP access (for auditing)
+  synapse.http.server:
+    level: INFO
+
+  # Federation (for debugging Étape 2)
+  synapse.federation:
+    level: INFO
+
+  # Registration
+  synapse.handlers.auth:
+    level: INFO
+
+  # Media uploads
+  synapse.rest.media:
+    level: INFO
+
+root:
+  level: INFO
+  handlers: [console, file]
+
+# Disable noisy loggers
+disable_noisy_loggers:
+  twisted: true
+  werkzeug: true
+  aiohttp: true

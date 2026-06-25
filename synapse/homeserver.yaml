@@ -1,0 +1,140 @@
+# Synapse homeserver configuration — Étape 1 (Mode privé fermé)
+# Server name: kiwinet
+# Architecture: @user:kiwinet (utilisateurs sur domaine "kiwinet")
+# Fédération: Configuration présente mais DÉSACTIVÉE en Étape 1
+
+# ==============================================================================
+# [Core] Identité du serveur
+# ==============================================================================
+
+server_name: kiwinet
+pid_file: /data/homeserver.pid
+listeners:
+  # Client API (port 8008)
+  - port: 8008
+    type: http
+    x_forwarded: true
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, federation]
+        compress: false
+
+# ==============================================================================
+# [Database] PostgreSQL persistence
+# ==============================================================================
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: ${SYNAPSE_DB_PASSWORD:null}
+    database: synapse
+    host: 127.0.0.1
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+    isolation_level: REPEATABLE_READ
+
+# ==============================================================================
+# [Logging]
+# ==============================================================================
+
+log_config: /data/logging.yaml
+
+# ==============================================================================
+# [Registration & User Control]
+# ==============================================================================
+
+# Étape 1: Registration libre (open), pas de token
+enable_registration: true
+registration_requires_token: false
+enable_registration_captcha: false
+
+# Registration shared secret (pour synapse_register_new_matrix_user)
+registration_shared_secret: ${SYNAPSE_REGISTRATION_SECRET:null}
+
+# ==============================================================================
+# [Security & Secrets]
+# ==============================================================================
+
+macaroon_secret_key: ${SYNAPSE_MACAROON_SECRET:null}
+
+# ==============================================================================
+# [Storage]
+# ==============================================================================
+
+media_store_path: /data/media_store
+max_upload_size: "50M"
+max_image_cache_lifetime_ms: 86400000
+
+# ==============================================================================
+# [Federation] — ÉTAPE 2 (actuellement désactivée au niveau firewall)
+# ==============================================================================
+
+# Note: Fédération est configurée mais port 8448 est fermé au firewall VPS
+# À activer en Étape 2 avec configuration DNS delegation
+federation_ip_range_whitelist:
+  - '192.168/16'
+  - '10.0.0.0/8'
+  - '172.16.0.0/12'
+  - '127.0.0.1/32'
+  - '::1/128'
+
+# ==============================================================================
+# [Room Settings]
+# ==============================================================================
+
+# Autorise les utilisateurs à créer des rooms
+user_creation_is_public: true
+
+# Limite des 10 premiers utilisateurs pour éviter spam
+# À adapter selon besoin
+default_power_level_content_override:
+  invite: 50
+
+# ==============================================================================
+# [Metrics & Observability]
+# ==============================================================================
+
+metrics_flags:
+  known_servers: false
+
+# ==============================================================================
+# [Email] — Optionnel (à configurer plus tard si besoin)
+# ==============================================================================
+
+# email:
+#   smtp_host: smtp.example.com
+#   smtp_port: 587
+#   smtp_user: noreply@kiwinet.me
+#   smtp_pass: ${SYNAPSE_SMTP_PASSWORD:null}
+#   smtp_require_transport_security: true
+#   notif_from: "Kiwinet Matrix <noreply@kiwinet.me>"
+
+# ==============================================================================
+# [Turn] — Optionnel (à configurer pour VOIP/video)
+# ==============================================================================
+
+# turn_uris:
+#   - "turn:turn.kiwinet.me:3478?transport=udp"
+#   - "turn:turn.kiwinet.me:3478?transport=tcp"
+
+# ==============================================================================
+# [Admin Panel]
+# ==============================================================================
+
+admin_contact: "mailto:admin@kiwinet.me"
+
+# ==============================================================================
+# [Misc]
+# ==============================================================================
+
+# Approuve les conditions d'utilisation automatiquement (Étape 1)
+consent:
+  template_dir: /data/consent
+
+# Disable phone home (stats)
+report_stats: false
+
+# Trust X-Forwarded headers de Traefik
+trusted_third_party_id_servers: []
