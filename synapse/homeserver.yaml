@@ -41,7 +41,7 @@ database:
 # [Logging]
 # ==============================================================================
 
-log_config: /data/logging.yaml
+# log_config: /data/logging.yaml
 
 # ==============================================================================
 # [Registration & User Control]

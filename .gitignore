@@ -33,6 +33,7 @@ searxng/.env
 synapse/data/
 # Logs Synapse
 synapse/logs/
+synapse/ogging.yaml
 
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
