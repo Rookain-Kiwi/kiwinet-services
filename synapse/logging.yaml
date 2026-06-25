@@ -1,23 +1,40 @@
+# ==============================================================================
+# Synapse Logging Configuration — JSON format pour Loki/ELK
+# ==============================================================================
+# Format: JSON structuré pour intégration Promtail → Loki
+# Sortie: stderr (Docker collecte automatiquement)
+
 version: 1
 disable_existing_loggers: false
 
+# ==============================================================================
+# [Formatters] — JSON + texte
+# ==============================================================================
+
 formatters:
+  # Format texte classique (fallback)
   precise:
     format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
 
+  # Format JSON pour Loki (nom correct: JsonFormatter, pas JSONFormatter)
   json:
-    (): synapse.logging.JSONFormatter
-    # Default fields to include in JSON logs
+    (): synapse.logging.JsonFormatter
     default_fields:
       server: kiwinet
       component: synapse
 
+# ==============================================================================
+# [Handlers] — Où envoyer les logs
+# ==============================================================================
+
 handlers:
+  # Console (stderr) — Docker récupère automatiquement
   console:
     class: logging.StreamHandler
     formatter: json
     stream: ext://sys.stdout
 
+  # Fichier local (backup)
   file:
     class: logging.handlers.RotatingFileHandler
     formatter: precise
@@ -25,25 +42,29 @@ handlers:
     maxBytes: 104857600  # 100MB
     backupCount: 3
 
+# ==============================================================================
+# [Loggers] — Configuration par composant
+# ==============================================================================
+
 loggers:
   # Synapse core
   synapse:
     level: INFO
     handlers: [console, file]
 
-  # Database (verbose)
+  # Database queries (verbose)
   synapse.storage:
     level: INFO
 
-  # HTTP access (for auditing)
+  # HTTP access (pour auditing)
   synapse.http.server:
     level: INFO
 
-  # Federation (for debugging Étape 2)
+  # Federation (pour debug Étape 2)
   synapse.federation:
     level: INFO
 
-  # Registration
+  # Registration & auth
   synapse.handlers.auth:
     level: INFO
 
@@ -51,11 +72,18 @@ loggers:
   synapse.rest.media:
     level: INFO
 
+# ==============================================================================
+# [Root Logger]
+# ==============================================================================
+
 root:
   level: INFO
   handlers: [console, file]
 
-# Disable noisy loggers
+# ==============================================================================
+# [Disable Noisy Loggers]
+# ==============================================================================
+
 disable_noisy_loggers:
   twisted: true
   werkzeug: true
