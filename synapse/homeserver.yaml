@@ -31,7 +31,7 @@ database:
     user: synapse
     password: ${SYNAPSE_DB_PASSWORD:null}
     database: synapse
-    host: 127.0.0.1
+    host: postgres
     port: 5432
     cp_min: 5
     cp_max: 10
