@@ -35,7 +35,6 @@ database:
     port: 5432
     cp_min: 5
     cp_max: 10
-    isolation_level: REPEATABLE_READ
 
 # ==============================================================================
 # [Logging]
