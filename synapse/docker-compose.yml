@@ -17,6 +17,9 @@ services:
     container_name: synapse
     restart: unless-stopped
 
+    # Spécification de l'utilisateur
+    user: "991:991"
+
     # Réseaux: proxy pour Traefik, db pour PostgreSQL
     networks:
       - proxy
