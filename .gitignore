@@ -29,11 +29,13 @@ pgadmin/.env
 searxng/.env
 
 # ── Synapse (Matrix) ──────────────────────────────────────────────────────────
-# Données Synapse persistantes — volumineuses et contiennent des secrets
+synapse/.env
+synapse/homeserver.yaml
+synapse/kiwinet.signing.key
+synapse/kiwinet.log.config
 synapse/data/
-# Logs Synapse
 synapse/logs/
-synapse/logging.yaml
+synapse/media_store/
 
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
