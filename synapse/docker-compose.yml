@@ -1,88 +1,92 @@
+# ============================================================================
+# Synapse (Matrix Server) — Docker Compose
+# ============================================================================
+# Configuration: Server name: kiwinet
+# Architecture: Synapse seulement (PostgreSQL mutualisé existant)
+# Réseaux: proxy (Traefik) + db (PostgreSQL existant)
+# ============================================================================
+
 version: "3.8"
 
 services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Synapse — Matrix homeserver
+  # ──────────────────────────────────────────────────────────────────────────
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: synapse
     restart: unless-stopped
+
+    # Réseaux: proxy pour Traefik, db pour PostgreSQL
     networks:
       - proxy
       - db
+
+    # Port client API (localhost only, proxié via Traefik)
     ports:
-      - "127.0.0.1:8008:8008"  # Client API (localhost only, proxied via Traefik)
+      - "127.0.0.1:8008:8008"
+
+    # Volumes persistants
     volumes:
-      - ./data:/data
-      - ./homeserver.yaml:/data/homeserver.yaml:ro
-      - ./logging.yaml:/data/logging.yaml:ro
+      - ./data:/data                              # Données Synapse
+      - ./homeserver.yaml:/data/homeserver.yaml:ro # Config (read-only)
+      - ./logging.yaml:/data/logging.yaml:ro       # Logging (read-only)
+
+    # Variables d'environnement
     environment:
       - SYNAPSE_SERVER_NAME=kiwinet
       - SYNAPSE_REPORT_STATS=no
+
+    # Fichier .env avec secrets (DB password, macaroon, registration)
     env_file:
       - .env
-    depends_on:
-      - postgres
+
+    # Healthcheck: vérifier que Synapse répond
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+    # ────────────────────────────────────────────────────────────────────────
+    # Traefik Labels — Reverse proxy HTTPS via matrix.kiwinet.me
+    # ────────────────────────────────────────────────────────────────────────
     labels:
-      # Traefik reverse proxy configuration
+      # Activer Traefik pour ce service
       - traefik.enable=true
+
+      # Router HTTPS (websecure entry point)
       - traefik.http.routers.synapse.entrypoints=websecure
+
+      # Rule: Host matrix.kiwinet.me
       - traefik.http.routers.synapse.rule=Host(`matrix.kiwinet.me`)
+
+      # TLS: activer + certificat Let's Encrypt
       - traefik.http.routers.synapse.tls=true
       - traefik.http.routers.synapse.tls.certresolver=letsencrypt
+
+      # Service backend: port 8008 (HTTP interne)
       - traefik.http.routers.synapse.service=synapse-svc
       - traefik.http.services.synapse-svc.loadbalancer.server.port=8008
       - traefik.http.services.synapse-svc.loadbalancer.server.scheme=http
-      # Additional headers for security
+
+      # Headers de sécurité
       - traefik.http.middlewares.synapse-headers.headers.customresponseheaders.X-Content-Type-Options=nosniff
       - traefik.http.middlewares.synapse-headers.headers.customresponseheaders.X-Frame-Options=SAMEORIGIN
       - traefik.http.routers.synapse.middlewares=synapse-headers
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres-synapse
-    restart: unless-stopped
-    networks:
-      - db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
-      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=pg_stat_statements"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-synapse-db.sql:/docker-entrypoint-initdb.d/init-synapse-db.sql:ro
-    ports:
-      - "127.0.0.1:5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    command:
-      - "postgres"
-      - "-c"
-      - "max_connections=200"
-      - "-c"
-      - "shared_buffers=256MB"
-      - "-c"
-      - "effective_cache_size=1GB"
-      - "-c"
-      - "work_mem=4MB"
-      - "-c"
-      - "maintenance_work_mem=64MB"
+# ==============================================================================
+# Réseaux — Utiliser les réseaux existants (créés par autres services)
+# ==============================================================================
 
 networks:
+  # Réseau proxy: partagé avec Traefik
   proxy:
     name: proxy
     external: true
+
+  # Réseau db: partagé avec PostgreSQL existant
   db:
     name: db
     external: true
-
-volumes:
-  postgres_data:
-    driver: local
