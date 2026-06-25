@@ -1,90 +1,48 @@
-# ==============================================================================
-# Synapse Logging Configuration — JSON format pour Loki/ELK
-# ==============================================================================
-# Format: JSON structuré pour intégration Promtail → Loki
-# Sortie: stderr (Docker collecte automatiquement)
+# ============================================================================
+# Synapse — Logging Configuration
+# ============================================================================
+# Format: standard Python logging avec timestamps
+# Sortie: stdout (affichée dans logs Docker)
+# Niveau: INFO (logs normaux + warnings + errors, pas de debug verbeux)
+# ============================================================================
 
 version: 1
 disable_existing_loggers: false
 
-# ==============================================================================
-# [Formatters] — JSON + texte
-# ==============================================================================
+# ──────────────────────────────────────────────────────────────────────────
+# Formats
+# ──────────────────────────────────────────────────────────────────────────
 
 formatters:
-  # Format texte classique (fallback)
+  # Format détaillé: timestamp | module | ligne | niveau | request ID | message
   precise:
     format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
 
-  # Format JSON pour Loki (nom correct: JsonFormatter, pas JSONFormatter)
-  json:
-    (): synapse.logging.JsonFormatter
-    default_fields:
-      server: kiwinet
-      component: synapse
-
-# ==============================================================================
-# [Handlers] — Où envoyer les logs
-# ==============================================================================
+# ──────────────────────────────────────────────────────────────────────────
+# Handlers (où envoyer les logs)
+# ──────────────────────────────────────────────────────────────────────────
 
 handlers:
-  # Console (stderr) — Docker récupère automatiquement
+  # Stdout: affichage dans les logs Docker
   console:
     class: logging.StreamHandler
-    formatter: json
+    formatter: precise
     stream: ext://sys.stdout
 
-  # Fichier local (backup)
-  file:
-    class: logging.handlers.RotatingFileHandler
-    formatter: precise
-    filename: /data/logs/synapse.log
-    maxBytes: 104857600  # 100MB
-    backupCount: 3
-
-# ==============================================================================
-# [Loggers] — Configuration par composant
-# ==============================================================================
-
-loggers:
-  # Synapse core
-  synapse:
-    level: INFO
-    handlers: [console, file]
-
-  # Database queries (verbose)
-  synapse.storage:
-    level: INFO
-
-  # HTTP access (pour auditing)
-  synapse.http.server:
-    level: INFO
-
-  # Federation (pour debug Étape 2)
-  synapse.federation:
-    level: INFO
-
-  # Registration & auth
-  synapse.handlers.auth:
-    level: INFO
-
-  # Media uploads
-  synapse.rest.media:
-    level: INFO
-
-# ==============================================================================
-# [Root Logger]
-# ==============================================================================
+# ──────────────────────────────────────────────────────────────────────────
+# Logger racine (tous les modules)
+# ──────────────────────────────────────────────────────────────────────────
 
 root:
+  handlers: [console]
+  # INFO = logs normaux + warnings + errors (sans debug verbeux)
   level: INFO
-  handlers: [console, file]
 
-# ==============================================================================
-# [Disable Noisy Loggers]
-# ==============================================================================
+# ──────────────────────────────────────────────────────────────────────────
+# Loggers spécifiques
+# ──────────────────────────────────────────────────────────────────────────
 
-disable_noisy_loggers:
-  twisted: true
-  werkzeug: true
-  aiohttp: true
+loggers:
+  # SQL queries: infos uniquement (pas les debug)
+  synapse.storage.SQL:
+    level: INFO
