@@ -1,4 +1,6 @@
+# ==============================================================================
 # Synapse homeserver configuration — Étape 1 (Mode privé fermé)
+# ==============================================================================
 # Server name: kiwinet
 # Architecture: @user:kiwinet (utilisateurs sur domaine "kiwinet")
 # Fédération: Configuration présente mais DÉSACTIVÉE en Étape 1
@@ -49,6 +51,7 @@ log_config: /data/logging.yaml
 enable_registration: true
 registration_requires_token: false
 enable_registration_captcha: false
+enable_registration_without_verification: true
 
 # Registration shared secret (pour synapse_register_new_matrix_user)
 registration_shared_secret: ${SYNAPSE_REGISTRATION_SECRET:null}
@@ -86,10 +89,6 @@ federation_ip_range_whitelist:
 
 # Autorise les utilisateurs à créer des rooms
 user_creation_is_public: true
-
-# Limite des 10 premiers utilisateurs pour éviter spam
-# À adapter selon besoin
-# default_power_level_content_override: {}  # Laisser vide ou commenter pour Étape 1
 
 # ==============================================================================
 # [Metrics & Observability]
