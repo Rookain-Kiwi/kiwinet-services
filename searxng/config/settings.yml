@@ -23,7 +23,7 @@ server:
   port: 8080
   bind_address: "0.0.0.0"
   secret_key: "${SEARXNG_SECRET_KEY}"
-  limiter: true
+  limiter: false
   image_proxy: true
   http_protocol_version: "1.1"
 
