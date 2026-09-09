@@ -1,0 +1,93 @@
+###############################################################################
+# wireguard/docker-compose.yml : Hub WireGuard central — VPS Scaleway
+# Projet  : kiwinet.me
+# Cible   : VPS Scaleway (x86_64, fr-par-1) — kiwinet-scaleway
+# Image   : ghcr.io/wg-easy/wg-easy:15 (serveur WireGuard + interface web
+#           de gestion des pairs)
+# Accès   : VPN     → UDP 51820 (exposé directement, hors Traefik — WireGuard
+#                      est L3/UDP, incompatible avec un reverse proxy HTTP)
+#           Admin UI → wg.kiwinet.me (HTTPS via Traefik, jamais en clair)
+# Rôle    : hub central du mesh WireGuard kiwinet. Pairs prévus : VM Debian
+#           du Pixel 10a (GrapheneOS), laptop debian-pavilion (plus tard),
+#           kiwinet-freebox (plus tard). Contexte complet : voir la page
+#           Notion "Nœud WireGuard Pixel 10a — Garde-fous d'accès de secours"
+#           (projet Stack [Kiwinet]).
+###############################################################################
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # WG-EASY : serveur WireGuard + interface web de gestion des pairs
+  # Tag majeur épinglé (":15") — jamais ":latest", qui pointe vers la v14
+  # côté upstream (cf. doc officielle wg-easy, convention de tags).
+  # ───────────────────────────────────────────────────────────────────────────
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy:15
+    container_name: wg-easy
+    restart: unless-stopped
+
+    networks:
+      # Réseau dédié WireGuard — requis par l'image pour son adressage interne
+      wg:
+        ipv4_address: 10.42.42.42
+      # Réseau proxy — uniquement pour exposer l'interface web via Traefik
+      proxy:
+
+    volumes:
+      # Clé privée du serveur + clés de tous les pairs — voir section Sécurité
+      # du README pour la stratégie de sauvegarde.
+      - etc_wireguard:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
+
+    ports:
+      # UDP WireGuard — seul port publié directement sur l'hôte. Traefik ne
+      # peut pas relayer du trafic WireGuard (L3/UDP, pas HTTP).
+      - "51820:51820/udp"
+      # Port 51821 (interface web) volontairement NON publié ici : accessible
+      # uniquement via Traefik en HTTPS (labels ci-dessous), jamais en clair
+      # sur l'hôte — conforme à l'avertissement de sécurité de la doc
+      # officielle wg-easy sur l'usage sans reverse proxy.
+
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wg-easy.rule=Host(`wg.kiwinet.me`)"
+      - "traefik.http.routers.wg-easy.entrypoints=websecure"
+      - "traefik.http.routers.wg-easy.tls.certresolver=letsencrypt"
+      - "traefik.http.services.wg-easy.loadbalancer.server.port=51821"
+      # Le conteneur est présent sur deux réseaux Docker (wg + proxy) — ce
+      # label indique explicitement à Traefik lequel utiliser pour joindre
+      # l'interface web (cf. doc officielle wg-easy, tutoriel Traefik).
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.wg-easy.middlewares=secure-headers@file,rate-limit@file"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  # Réseau interne dédié à wg-easy (adressage requis par l'image).
+  # IPv6 volontairement omis ici : non utilisé ailleurs dans kiwinet-services,
+  # à ajouter seulement si un besoin réel apparaît.
+  wg:
+    name: wg-easy_wg
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.42.0/24
+  proxy:
+    external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  etc_wireguard:
+    name: wg-easy_etc_wireguard

@@ -46,6 +46,9 @@ kiwinet-services/
 │   └── .env                          # Fichier vide requis
 ├── jellyfin/                   # Test de cohabitation avec Plex — accès local uniquement
 │   └── docker-compose.yml
+├── wireguard/                   # Hub WireGuard central — VPS Scaleway uniquement
+│   ├── docker-compose.yml
+│   └── (volume etc_wireguard : clés serveur + pairs, gitignored)
 └── bedetheque-komga/           # Chemin VM : /opt/kiwinet-services/bedetheque-komga/
 ```
 
@@ -94,3 +97,4 @@ cd <service> && docker compose up -d --force-recreate
 | Komga                      | `komga/`            | `komga.kiwinet.me`            | [komga/README.md](./komga/README.md)               |
 | Komf                       | `komf/`             | interne (`172.18.0.x:8085`)   | [komf/README.md](./komf/README.md)                 |
 | Jellyfin (test)            | `jellyfin/`         | LAN/VPN uniquement (`:8096`)  | [jellyfin/README.md](./jellyfin/README.md)         |
+| WireGuard (wg-easy)        | `wireguard/`        | `wg.kiwinet.me` (UI) + UDP 51820 | [wireguard/README.md](./wireguard/README.md)   |
