@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
     # UID/GID non-root explicite — cohérent avec jellyfin. Le dossier hôte
     # /srv/backups/graphenos-webdav doit être chown 1000:1000 au préalable.
-    user: "1000:1000"
+    user: "1002:1002"
 
     command: >
       serve webdav /data
@@ -38,9 +38,9 @@ services:
       # Bind mount explicite (pas de volume nommé) — accès direct depuis l'hôte
       # pour inspection/vérification manuelle des sauvegardes reçues.
       # Sous-dossiers à créer manuellement avant le premier lancement :
-      #   mkdir -p /srv/backups/graphenos-webdav/{public,private,professional}
-      #   chown -R 1000:1000 /srv/backups/graphenos-webdav
-      - /srv/backups/graphenos-webdav:/data
+      #   mkdir -p /mnt/Data/Backups/Technique/grapheneos-backups/{public,private,professional}
+      #   chown -R 1002:1002 /mnt/Data/Backups/Technique/grapheneos-backups
+      - /mnt/Data/Backups/Technique/grapheneos-backups:/data
 
     networks:
       - proxy
