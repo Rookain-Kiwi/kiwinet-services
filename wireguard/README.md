@@ -81,6 +81,28 @@ serveur).
 
 ---
 
+## Restriction d'accès par pair — Per-Client Firewall
+
+**Le champ "Allowed IPs" standard de l'interface web n'est PAS une restriction de
+sécurité** : c'est une simple indication de routage côté client, qu'un pair peut
+ignorer ou modifier localement. La doc officielle wg-easy est explicite sur ce
+point (FAQ : *"How do I restrict client access to specific networks or
+servers?"*).
+
+La vraie restriction, appliquée côté serveur et non contournable par le client,
+s'appelle **Per-Client Firewall** (nécessite `iptables`/`ip6tables` sur l'hôte,
+déjà présents sur `kiwinet-scaleway` via `ufw`) :
+
+1. **Admin Panel → Interface** → activer *"Per-Client Firewall"*
+2. Éditer chaque pair → remplir *"Firewall Allowed IPs"* avec les destinations
+   précises autorisées (ex. IP interne + port SSH de `kiwinet-freebox` et
+   `kiwinet-scaleway` uniquement — pas d'accès LAN complet par défaut, cf.
+   décision Notion).
+
+À faire avant de créer le premier pair (VM Debian du Pixel 10a).
+
+---
+
 ## Sécurité
 
 - Interface d'administration exposée uniquement en HTTPS via Traefik

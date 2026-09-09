@@ -27,11 +27,21 @@ services:
     restart: unless-stopped
 
     networks:
-      # Réseau dédié WireGuard — requis par l'image pour son adressage interne
+      # Réseau dédié WireGuard — requis par l'image pour son adressage interne.
+      # interface_name/gw_priority forcés explicitement : la doc officielle
+      # wg-easy documente un bug connu où Docker peut inverser eth0/eth1 au
+      # redémarrage du conteneur quand plusieurs réseaux sont attachés, ce qui
+      # casse silencieusement les règles POSTROUTING (wg-easy suppose toujours
+      # que l'interface WireGuard est eth0). Fixé ici pour éviter une coupure
+      # de connectivité de tous les pairs au prochain restart/reboot du VPS.
       wg:
         ipv4_address: 10.42.42.42
+        interface_name: eth0
+        gw_priority: 1
       # Réseau proxy — uniquement pour exposer l'interface web via Traefik
       proxy:
+        interface_name: eth1
+        gw_priority: 0
 
     volumes:
       # Clé privée du serveur + clés de tous les pairs — voir section Sécurité
