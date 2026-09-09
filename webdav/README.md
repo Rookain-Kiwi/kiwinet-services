@@ -1,7 +1,7 @@
 # webdav
 
-Serveur WebDAV minimal (rclone `serve webdav`) exposant `/srv/backups/graphenos-webdav`
-via `webdav.kiwinet.me`. Destination des sauvegardes Seedvault du Pixel 10a
+Serveur WebDAV minimal (rclone `serve webdav`) exposant
+`/mnt/Data/Backups/Technique/grapheneos-backups` via `webdav.kiwinet.me`. Destination des sauvegardes Seedvault du Pixel 10a
 (GrapheneOS) pour les trois profils : Rookain, Public, Professionnel.
 
 Remplace le transfert manuel via Freebox Files (peu fiable en connexion mobile,
@@ -24,14 +24,14 @@ un support complet chez `go-webdav`. Sans impact ici : un seul client (Seedvault
 
 ## Prérequis avant premier démarrage
 
+Arm64 confirmé disponible dans le manifeste `rclone/rclone:1.71.2` (vérifié le 21/08).
+
+Le dossier hôte `/mnt/Data/Backups/Technique/grapheneos-backups` existe déjà,
+peuplé par les transferts manuels précédents (`public/`, `private/`,
+`professional/`, `terminal/`). Le conteneur tourne avec `user: "1002:1002"`
+pour matcher la propriété existante (`rookain:rookain`) — pas de chown requis.
+
 ```bash
-# Vérifier le support arm64 de l'image (VM Freebox Delta = ARM AArch64)
-docker manifest inspect rclone/rclone:1.71.2
-
-# Créer l'arborescence hôte, un sous-dossier par profil
-mkdir -p /srv/backups/graphenos-webdav/{public,private,professional}
-chown -R 1000:1000 /srv/backups/graphenos-webdav
-
 # Générer les identifiants (bcrypt recommandé)
 htpasswd -nB <utilisateur> >> webdav/.htpasswd
 ```
