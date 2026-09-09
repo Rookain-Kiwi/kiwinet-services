@@ -13,8 +13,6 @@ traefik/acme.vps.json
 # Identifiants basic auth — générer avec : htpasswd -nB <utilisateur> >> traefik/.htpasswd
 traefik/.htpasswd
 
-# Credentials Komga contenus dans yaml — ne jamais versionner
-komf/config/application.yml
 
 # ── Home Assistant ────────────────────────────────────────────────────────────
 # Données HA persistantes — volumineuses et contiennent des secrets
@@ -28,15 +26,6 @@ postgres/.env
 pgadmin/.env
 searxng/.env
 
-# ── Synapse (Matrix) ──────────────────────────────────────────────────────────
-synapse/.env
-synapse/homeserver.yaml
-synapse/kiwinet.signing.key
-synapse/kiwinet.log.config
-synapse/data/
-synapse/logs/
-synapse/media_store/
-
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp
@@ -45,5 +34,5 @@ synapse/media_store/
 # ── SeedBox ───────────────────────────────────────────────────────────────────
 traefik/dynamic/dynamic.seedbox.yml
 
-# ── Samba PS2 ─────────────────────────────────────────────────────────────────
-samba-ps2/.env
+# ── WebDAV Backups ────────────────────────────────────────────────────────────
+webdav/.htpasswd

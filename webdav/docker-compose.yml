@@ -1,0 +1,66 @@
+###############################################################################
+# webdav/docker-compose.yml : Serveur WebDAV — sauvegardes Seedvault
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : rclone/rclone — sert un dossier local en WebDAV (RFC 4918 partiel)
+# Accès   : webdav.kiwinet.me (HTTPS via Traefik uniquement, pas d'exposition LAN)
+# Usage   : destination Seedvault pour les 3 profils du Pixel 10a (Rookain,
+#           Public, Professionnel), un sous-dossier par profil sous /data.
+###############################################################################
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # WEBDAV : sert /data en WebDAV, authentification bcrypt dédiée
+  # (indépendante de l'auth-basic du dashboard Traefik — un client WebDAV
+  # comme Seedvault dialogue directement avec rclone, pas avec Traefik)
+  # ───────────────────────────────────────────────────────────────────────────
+  webdav:
+    # Tag épinglé plutôt que ":latest" — à vérifier/mettre à jour manuellement
+    # (rclone publie très fréquemment). Vérifier le support arm64 avant premier
+    # déploiement : docker manifest inspect rclone/rclone:1.71.2
+    image: rclone/rclone:1.71.2
+    container_name: webdav
+    restart: unless-stopped
+    # UID/GID non-root explicite — cohérent avec jellyfin. Le dossier hôte
+    # /srv/backups/graphenos-webdav doit être chown 1000:1000 au préalable.
+    user: "1000:1000"
+
+    command: >
+      serve webdav /data
+      --addr :8080
+      --baseurl /webdav
+      --htpasswd /config/htpasswd
+      --realm kiwinet-webdav
+
+    volumes:
+      # Fichier d'identifiants bcrypt — même mécanisme que traefik/.htpasswd.
+      # Générer avec : htpasswd -nB <utilisateur> >> webdav/.htpasswd
+      - ./.htpasswd:/config/htpasswd:ro
+      # Bind mount explicite (pas de volume nommé) — accès direct depuis l'hôte
+      # pour inspection/vérification manuelle des sauvegardes reçues.
+      # Sous-dossiers à créer manuellement avant le premier lancement :
+      #   mkdir -p /srv/backups/graphenos-webdav/{public,private,professional}
+      #   chown -R 1000:1000 /srv/backups/graphenos-webdav
+      - /srv/backups/graphenos-webdav:/data
+
+    networks:
+      - proxy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webdav.rule=Host(`webdav.kiwinet.me`)"
+      - "traefik.http.routers.webdav.entrypoints=websecure"
+      - "traefik.http.routers.webdav.tls.certresolver=letsencrypt"
+      - "traefik.http.services.webdav.loadbalancer.server.port=8080"
+      # secure-headers : durcissement HTTP standard (HSTS, anti-clickjacking, etc.)
+      # rate-limit : protection contre le brute-force/abus, vu l'exposition publique
+      # Pas d'auth-basic@file ici : rclone gère sa propre authentification WebDAV
+      # via --htpasswd ; ajouter une 2e couche créerait un conflit d'auth pour
+      # les clients WebDAV (Seedvault) qui envoient leurs identifiants directement.
+      - "traefik.http.routers.webdav.middlewares=secure-headers@file,rate-limit@file"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
