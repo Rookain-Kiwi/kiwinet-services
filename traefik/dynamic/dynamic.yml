@@ -68,6 +68,20 @@ http:
         - secure-headers
         - ha-forwardproto
 
+    # Music Assistant : interface web exposée en HTTPS.
+    # Nécessaire pour que les images (jaquettes) chargées par l'app Companion
+    # Android ne soient pas bloquées comme contenu mixte (page HTTPS + image HTTP).
+    # MA tourne en network_mode: host — même pattern que Home Assistant.
+    music-assistant:
+      rule: "Host(`ma.kiwinet.me`)"
+      entryPoints:
+        - websecure
+      service: music-assistant
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - secure-headers
+
   services:
 
     # Home Assistant en network_mode: host
@@ -76,6 +90,13 @@ http:
       loadBalancer:
         servers:
           - url: "http://172.18.0.1:8123"
+
+    # Music Assistant en network_mode: host
+    # 172.18.0.1 = gateway réseau proxy = IP VM vue depuis Traefik
+    music-assistant:
+      loadBalancer:
+        servers:
+          - url: "http://172.18.0.1:8095"
 
   serversTransports:
     retroarch-transport:
