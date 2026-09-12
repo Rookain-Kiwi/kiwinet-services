@@ -1,0 +1,33 @@
+###############################################################################
+# music-assistant/docker-compose.yml : Serveur Music Assistant
+# Projet  : kiwinet.me
+# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
+# Image   : ghcr.io/music-assistant/server (officielle)
+# Accès   : LAN uniquement — http://<IP_VM>:8095 (pas d'exposition Traefik,
+#           usage quotidien via HA, admin ponctuelle en LAN ou via WireGuard)
+###############################################################################
+services:
+  music-assistant:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: music-assistant
+    restart: unless-stopped
+    security_opt:
+      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
+      - apparmor:unconfined
+    # network_mode: host — OBLIGATOIRE (doc officielle music-assistant.io) :
+    #   découverte Chromecast/AirPlay/Sonos/DLNA nécessite un accès réseau
+    #   direct (couche 2), impossible en bridge Docker. Même contrainte
+    #   exacte que Home Assistant pour la découverte mDNS.
+    #   Conséquence : protégé nativement par ufw, pas de contournement
+    #   DOCKER-USER nécessaire ici (contrairement à Jellyfin/Mosquitto).
+    network_mode: host
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - music-assistant-data:/data
+      # Même montage CIFS que Jellyfin — lecture seule, MA ne doit jamais
+      # modifier les fichiers source
+      - /mnt/Libraries/Music:/media/music:ro
+
+volumes:
+  music-assistant-data:
