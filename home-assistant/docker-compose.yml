@@ -20,7 +20,7 @@ services:
   # ───────────────────────────────────────────────────────────────────────────
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
-    container_name: homeassistant
+    container_name: home-assistant
     restart: unless-stopped
     security_opt:
       # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
