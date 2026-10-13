@@ -1,6 +1,6 @@
 # traefik — Reverse proxy
 
-Point d'entrée unique de la VM. Aucun service n'est exposé publiquement sans passer par ici.
+Point d'entrée unique de l'hôte. Aucun service n'est exposé publiquement sans passer par ici.
 
 > Contexte global : [kiwinet-docs](https://github.com/Rookain-Kiwi/kiwinet-docs)
 
@@ -10,8 +10,9 @@ Point d'entrée unique de la VM. Aucun service n'est exposé publiquement sans p
 
 - Reverse proxy HTTP/HTTPS avec routing par domaine
 - Gestion SSL automatique via Let's Encrypt (HTTP Challenge)
-- TCP passthrough pour Minecraft (port 25565)
-- Création du réseau Docker `proxy`
+- TCP passthrough pour Minecraft (port 25565) — VPS uniquement
+- Création du réseau Docker `proxy` (sous-réseau fixe)
+- Accès à l'API Docker en lecture seule via `socket-proxy` (pas de socket monté dans Traefik)
 
 ---
 
@@ -21,11 +22,14 @@ Ce répertoire contient deux configurations Traefik indépendantes, une par hôt
 
 ```
 traefik/
-├── docker-compose.yml      # Freebox Delta (VM ARM64)
-├── traefik.yml             # Config statique Freebox
-├── dynamic.yml             # Config dynamique Freebox
-├── acme.json               # Certificats TLS Freebox (chmod 600, gitignored)
-├── .htpasswd               # Auth basic dashboard Freebox (gitignored)
+├── docker-compose.yml      # Serveur auto-hébergé (x86_64) : Traefik + socket-proxy
+├── traefik.yml             # Config statique (serveur auto-hébergé)
+├── env.example             # Modèle du .env (HOST_BIND_IP)
+├── dynamic/
+│   └── dynamic.yml         # Config dynamique (serveur auto-hébergé)
+├── .env                    # HOST_BIND_IP (local, gitignored)
+├── acme.json               # Certificats TLS (chmod 600, gitignored)
+├── .htpasswd               # Auth basic dashboard (gitignored)
 │
 ├── docker-compose.vps.yml  # VPS Scaleway (AMD64)
 ├── traefik.vps.yml         # Config statique VPS
@@ -37,15 +41,17 @@ traefik/
 
 ## Déploiement
 
-### Freebox Delta (VM ARM64)
+### Serveur auto-hébergé (x86_64, Debian 13)
 
 ```bash
 cd /opt/kiwinet-services/traefik
 
-# Permissions obligatoires avant premier démarrage
-chmod 600 acme.json
+# Prérequis : .env, acme.json et .htpasswd
+# (voir « Fichiers locaux à créer avant premier démarrage »)
+chmod 600 acme.json .htpasswd
 
-# Démarrage
+# Contrôle de la configuration, puis démarrage
+docker compose config --quiet
 docker compose up -d
 
 # Après modification de traefik.yml
@@ -75,19 +81,24 @@ docker restart traefik
 
 ---
 
-## Fichiers secrets à créer avant premier démarrage
+## Fichiers locaux à créer avant premier démarrage
 
-### Freebox
+### Serveur auto-hébergé
+
+`.env` — adresse LAN de l'hôte sur laquelle publier les ports 80 et 443 :
+```bash
+cp env.example .env   # puis renseigner HOST_BIND_IP
+```
 
 `acme.json` — fichier vide avec permissions strictes :
 ```bash
 touch acme.json && chmod 600 acme.json
 ```
 
-`.htpasswd` — identifiants dashboard (bcrypt) :
+`.htpasswd` — identifiants dashboard (bcrypt), à créer depuis `traefik/` :
 ```bash
-htpasswd -nB <utilisateur> >> traefik/.htpasswd
-chmod 600 traefik/.htpasswd
+htpasswd -nB <utilisateur> >> .htpasswd
+chmod 600 .htpasswd
 ```
 
 ### VPS Scaleway
@@ -103,16 +114,15 @@ Le dashboard Traefik n'est pas exposé sur le VPS — pas de `.htpasswd` requis.
 
 ## Middlewares disponibles
 
-Définis dans `dynamic.yml` (Freebox) et `dynamic.vps.yml` (VPS), référencés via `@file` depuis les labels Docker.
+Définis dans `dynamic/dynamic.yml` (serveur auto-hébergé) et dans `dynamic.vps.yml` (VPS), référencés via `@file` depuis les labels Docker.
 
-### Freebox (`dynamic.yml`)
+### Serveur auto-hébergé (`dynamic/`)
 
 | Middleware               | Usage                                 |
 |--------------------------|---------------------------------------|
 | `auth-basic@file`        | Dashboard Traefik                     |
 | `secure-headers@file`    | Services publics                      |
-| `komga-headers@file`     | Komga — reader EPUB web (iframes CSP) |
-| `rate-limit@file`        | Endpoints publics                     |
+| `rate-limit@file`        | Dashboard Traefik, endpoints publics, Home Assistant, Music Assistant |
 | `ha-forwardproto@file`   | Home Assistant (X-Forwarded-Proto)    |
 
 ### VPS Scaleway (`dynamic.vps.yml`)
@@ -125,6 +135,12 @@ Définis dans `dynamic.yml` (Freebox) et `dynamic.vps.yml` (VPS), référencés 
 ---
 
 ## Points critiques
+
+**Docker lu via `socket-proxy`** — Traefik ne monte plus le socket Docker : il lit la liste des conteneurs par `socket-proxy` (réseau interne, `CONTAINERS=1`, lecture seule). Un service à exposer doit porter `traefik.enable=true` et être sur le réseau `proxy`.
+
+**Ports publiés sur l'adresse LAN** — les ports 80 et 443 sont liés à `HOST_BIND_IP` (pas de `0.0.0.0`, pas d'IPv6). Le démarrage échoue si la variable n'est pas définie.
+
+**Sous-réseau `proxy` fixe (`172.18.0.0/16`)** — les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
 
 **Rechargement `dynamic.yml` non fiable** — malgré `watch: true`, toujours redémarrer :
 ```bash

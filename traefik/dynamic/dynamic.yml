@@ -1,5 +1,5 @@
-# traefik/dynamic.yml : Configuration dynamique Traefik
-# Ce fichier est rechargé à chaud, aucun redémarrage requis.
+# traefik/dynamic/dynamic.yml : Configuration dynamique Traefik — serveur auto-hébergé
+# Rechargée à chaud (watch: true). En cas de doute : docker restart traefik (voir README).
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HTTP : Middlewares, routers et services HTTP/HTTPS
@@ -9,7 +9,7 @@ http:
 
     # Protection : dashboard Traefik, Prometheus, Grafana.
     # Identifiants stockés dans .htpasswd (gitignored) — générer avec :
-    #   htpasswd -nB <utilisateur> >> traefik/.htpasswd
+    #   htpasswd -nB <utilisateur> >> .htpasswd   (depuis traefik/)
     auth-basic:
       basicAuth:
         usersFile: /etc/traefik/.htpasswd
@@ -27,15 +27,6 @@ http:
         customResponseHeaders:
           X-Powered-By: ""            # Masquer la stack technique
           Server: ""
-
-    # Headers spécifiques à Komga : autorise les iframes pour le reader EPUB web.
-    # frameDeny doit être absent (pas de X-Frame-Options restrictif)
-    # frame-ancestors 'self' permet à Komga d'afficher ses propres iframes.
-    komga-headers:
-      headers:
-        customResponseHeaders:
-          X-Frame-Options: "SAMEORIGIN"
-          Content-Security-Policy: "frame-ancestors 'self' https://komga.kiwinet.me;"
 
     # Limitation de débit pour les endpoints publics.
     rate-limit:
@@ -56,7 +47,8 @@ http:
     # Home Assistant : domotique locale exposée via HTTPS.
     # HA tourne en network_mode: host — labels Docker non fonctionnels en mode host,
     # la route est donc déclarée ici manuellement.
-    # ⚠️  Vérifier l'IP : docker network inspect proxy | grep Gateway
+    # 172.18.0.1 = passerelle du réseau proxy, fixée dans traefik/docker-compose.yml.
+    # Le pare-feu de l'hôte (ufw) doit autoriser 172.18.0.0/16 vers les ports 8123 et 8095.
     homeassistant:
       rule: "Host(`hub.kiwinet.me`)"
       entryPoints:
@@ -66,6 +58,7 @@ http:
         certResolver: letsencrypt
       middlewares:
         - secure-headers
+        - rate-limit
         - ha-forwardproto
 
     # Music Assistant : interface web exposée en HTTPS.
@@ -81,23 +74,20 @@ http:
         certResolver: letsencrypt
       middlewares:
         - secure-headers
+        - rate-limit
 
   services:
 
     # Home Assistant en network_mode: host
-    # 172.18.0.1 = gateway réseau proxy = IP VM vue depuis Traefik
+    # 172.18.0.1 = gateway réseau proxy = adresse de l'hôte vue depuis Traefik
     homeassistant:
       loadBalancer:
         servers:
           - url: "http://172.18.0.1:8123"
 
     # Music Assistant en network_mode: host
-    # 172.18.0.1 = gateway réseau proxy = IP VM vue depuis Traefik
+    # 172.18.0.1 = gateway réseau proxy = adresse de l'hôte vue depuis Traefik
     music-assistant:
       loadBalancer:
         servers:
           - url: "http://172.18.0.1:8095"
-
-  serversTransports:
-    retroarch-transport:
-      insecureSkipVerify: true

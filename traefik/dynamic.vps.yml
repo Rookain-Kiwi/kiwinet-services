@@ -72,7 +72,7 @@ tcp:
   services:
 
     # Minecraft : résolution par nom de container sur le réseau proxy
-    # (pas d'IP fixe côté VPS, contrairement à la VM)
+    # (pas d'IP fixe côté VPS, contrairement au serveur auto-hébergé)
     minecraft:
       loadBalancer:
         servers:

@@ -14,7 +14,7 @@ accessLog: {}   # Active le log de chaque requête entrante
 # ─────────────────────────────────────────────────────────────────────────────
 api:
   dashboard: true
-  insecure: false   # Accès au dashboard uniquement via HTTPS (router défini dans dynamic.yml)
+  insecure: false   # Accès au dashboard uniquement via HTTPS (router défini par les labels de docker-compose.yml)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PROVIDERS
@@ -24,6 +24,9 @@ providers:
     # Seuls les conteneurs avec le label traefik.enable=true sont exposés
     exposedByDefault: false
     network: proxy
+    # API Docker lue via le proxy de socket (conteneurs en lecture seule),
+    # pas via le socket monté dans Traefik
+    endpoint: "tcp://socket-proxy:2375"
 
   file:
     directory: /etc/traefik/dynamic/
@@ -64,7 +67,7 @@ entryPoints:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "loic.kergoat.business@kiwinet.me"
+      email: "loic.kergoat@kiwinet.me"
       storage: /acme.json
       httpChallenge:
         entryPoint: web   # Validation via le port 80

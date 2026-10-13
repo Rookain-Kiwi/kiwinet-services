@@ -23,15 +23,11 @@ home-assistant/mosquitto/log/
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 postgres/.env
 pgadmin/.env
-searxng/.env
 
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp
 *.swo
-
-# ── SeedBox ───────────────────────────────────────────────────────────────────
-traefik/dynamic/dynamic.seedbox.yml
 
 # ── WebDAV Backups ────────────────────────────────────────────────────────────
 webdav/.htpasswd

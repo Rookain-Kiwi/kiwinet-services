@@ -69,7 +69,7 @@ entryPoints:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "loic.kergoat.business@kiwinet.me"
+      email: "loic.kergoat@kiwinet.me"
       storage: /acme.json
       httpChallenge:
         entryPoint: web   # Validation via le port 80

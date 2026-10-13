@@ -1,31 +1,52 @@
 ###############################################################################
 # traefik/docker-compose.yml : Reverse Proxy Traefik
 # Projet  : kiwinet.me
-# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
-# Image   : traefik:v3 (compatible linux/arm64)
+# Hôte    : kiwinet-server — Debian 13 x86_64 (Dell OptiPlex)
+# Image   : traefik:v3 (multi-architecture, épinglée par empreinte)
 # SSL     : Let's Encrypt HTTP Challenge (IP fixe, port 80 ouvert)
+# Prérequis : HOST_BIND_IP défini dans traefik/.env (voir env.example)
 ###############################################################################
 
 services:
 
   # ───────────────────────────────────────────────────────────────────────────
+  # SOCKET-PROXY : seul conteneur qui touche au socket Docker.
+  # Traefik n'a besoin que de lire la liste des conteneurs (CONTAINERS=1) ;
+  # toute écriture est refusée (POST=0 par défaut). Réseau interne : aucune
+  # route vers Internet ni vers le réseau proxy.
+  # ───────────────────────────────────────────────────────────────────────────
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: socket-proxy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CONTAINERS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+
+  # ───────────────────────────────────────────────────────────────────────────
   # TRAEFIK : Point d'entrée unique HTTP/HTTPS
   # ───────────────────────────────────────────────────────────────────────────
   traefik:
-    image: traefik:v3
+    image: traefik:v3@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
     container_name: traefik
     restart: unless-stopped
     security_opt:
-      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
-      # Nécessaire à la recréation du container — transparent au restart
-      - apparmor:unconfined
+      - no-new-privileges:true
+    depends_on:
+      - socket-proxy
 
     ports:
-      - "80:80"       # HTTP → redirigé vers HTTPS + HTTP Challenge Let's Encrypt
-      - "443:443"     # HTTPS → trafic SSL principal
+      # Publiés sur l'adresse LAN de l'hôte uniquement (pas de 0.0.0.0, pas d'IPv6)
+      - "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}:80:80"       # HTTP → redirigé vers HTTPS + HTTP Challenge Let's Encrypt
+      - "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}:443:443"     # HTTPS → trafic SSL principal
 
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # API Docker — découverte automatique des services
+      # Plus de socket Docker monté : l'API est lue via socket-proxy (traefik.yml)
       - ./traefik.yml:/etc/traefik/traefik.yml:ro     # Config statique — requiert restart si modifiée
       - ./dynamic/:/etc/traefik/dynamic/:ro           # Config dynamique — rechargée à chaud
       - ./acme.json:/acme.json                         # Stockage des certificats Let's Encrypt
@@ -33,20 +54,32 @@ services:
 
     networks:
       - proxy
+      - socket-proxy
 
     labels:
-      # Route du dashboard Traefik — protégée par basic auth (auth-basic@file dans dynamic.yml)
+      # Route du dashboard Traefik — limitation de débit PUIS basic auth
+      # (rate-limit@file, auth-basic@file), définis dans dynamic/dynamic.yml
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.kiwinet.me`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth-basic@file"
+      - "traefik.http.routers.dashboard.middlewares=rate-limit@file,auth-basic@file"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
+# proxy : sous-réseau fixé — dynamic/dynamic.yml route Home Assistant et Music
+#         Assistant (network_mode: host) via la passerelle 172.18.0.1.
+# socket-proxy : interne, réservé à la lecture de l'API Docker.
 # ─────────────────────────────────────────────────────────────────────────────
 networks:
   proxy:
     name: proxy
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+          gateway: 172.18.0.1
+  socket-proxy:
+    name: socket-proxy
+    internal: true
