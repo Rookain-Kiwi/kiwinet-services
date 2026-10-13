@@ -1,72 +1,74 @@
 ###############################################################################
 # jellyfin/docker-compose.yml : Serveur Jellyfin
 # Projet  : kiwinet.me
-# VM      : Debian 13.3 ARM AArch64 (Freebox Delta)
-# Image   : jellyfin/jellyfin (officielle) — bascule du 08/09/2026 depuis
-#           LinuxServer.io pour bénéficier de Jellyfin 12.0 dès sa sortie
-#           (LSIO n'avait pas encore republié son image au moment du switch).
-#           Aucune perte d'accélération matérielle dans un sens ou l'autre :
-#           ce SoC ARM (Marvell Cortex-A72) n'en a jamais eu de toute façon.
+# Image   : jellyfin/jellyfin (officielle), épinglée par empreinte.
 # Accès   : jellyfin.kiwinet.me (HTTPS via Traefik → port 8096 interne)
-#           + LAN direct sur port 8096 (découverte auto-discovery clients locaux)
+#           + réseau local direct : 8096/tcp (clients locaux) et 7359/udp
+#           (découverte automatique des clients), liés à HOST_BIND_IP
 ###############################################################################
 services:
   # ───────────────────────────────────────────────────────────────────────────
-  # JELLYFIN : Media Server — remplace Plex depuis le 07/09/2026
-  # Bibliothèques en lecture seule depuis le NAS Freebox (CIFS)
-  # Photos et Books évalués avec succès (08/09/2026) — Komga toujours en
-  # place en parallèle, décision finale en attente du résultat sur 12.0
+  # JELLYFIN : serveur média (films, séries, musique, photos, livres)
+  # Remplace Plex, Komga et Komf (retirés en septembre 2026)
+  # Bibliothèques en lecture seule depuis les disques USB locaux du serveur
   # ───────────────────────────────────────────────────────────────────────────
   jellyfin:
-    image: jellyfin/jellyfin:latest
+    # Épinglée par empreinte (index multi-architecture). Jellyfin ne sait pas
+    # revenir en arrière après une migration de base : ne jamais rétrograder,
+    # restaurer une sauvegarde à la place.
+    image: jellyfin/jellyfin:12.2@sha256:357724bf0ae27a672c7cbaa899db2d9abeb13dbd8657ccce750258a4c059d037
     container_name: jellyfin
     restart: unless-stopped
-    # Image officielle : pas de PUID/PGID (spécifique à LinuxServer.io),
-    # on impose directement l'UID/GID du conteneur via Docker
+    # Image officielle : pas de PUID/PGID (spécifique à LinuxServer.io), on
+    # impose l'UID/GID via Docker. Doit correspondre au propriétaire du volume.
     user: "1000:1000"
     security_opt:
-      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
-      # Nécessaire à la recréation du container — transparent au restart
-      - apparmor:unconfined
+      - no-new-privileges:true
     ports:
-      # Exposition LAN directe — accès via IP locale ou VPN WireGuard
-      - "8096:8096"
-      # Découverte auto des clients sur le réseau local (LAN uniquement,
-      # sans impact WAN) — équivalent fonctionnel au GDM de Plex
-      - "7359:7359/udp"
+      # Réseau local uniquement (adresse du serveur dans .env). Traefik joint
+      # Jellyfin par le réseau proxy : ces ports ne servent qu'aux clients du
+      # LAN (télévisions, Cast, découverte automatique).
+      - "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}:8096:8096"
+      - "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}:7359:7359/udp"
     environment:
       TZ: "Europe/Paris"
-      # Chemins forcés pour correspondre à la structure existante du volume
-      # (héritée de LinuxServer.io, fichiers à la racine de /config, pas
-      # dans un sous-dossier /config/config comme l'attend l'image
-      # officielle par défaut). Sans ça, Jellyfin 12.0 ne retrouve pas
-      # system.xml/network.xml/users et réinitialise une config vierge.
+      # Chemins forcés pour reproduire la structure du volume restauré (héritée
+      # de LinuxServer.io : configuration à la racine de /config, données dans
+      # /config/data). À NE PAS RETIRER : sans eux, l'image officielle lit sa
+      # configuration dans /config/config, ne trouve rien et démarre sur une
+      # instance vierge (assistant de configuration initiale exposé).
       JELLYFIN_CONFIG_DIR: "/config"
       JELLYFIN_DATA_DIR: "/config/data"
       JELLYFIN_CACHE_DIR: "/config/cache"
       JELLYFIN_LOG_DIR: "/config/log"
     volumes:
-      # Configuration, métadonnées, base de données — MÊME volume nommé
-      # que sous LinuxServer.io, aucune migration de données nécessaire
+      # Configuration, métadonnées, base SQLite, cache. Volume nommé, restauré
+      # depuis l'archive de l'ancienne instance AVANT le premier démarrage
+      # (voir README).
       - jellyfin-config:/config
-      # Médias sur NAS Freebox (montages CIFS persistants via /etc/fstab)
-      # Lecture seule : Jellyfin ne doit jamais modifier les fichiers source
+      # Médias : disque USB local, chaque répertoire monté séparément en
+      # lecture seule (Jellyfin ne doit jamais modifier les fichiers source).
       - /mnt/Libraries/TV Shows:/data/tvshows:ro
       - /mnt/Libraries/Movies:/data/movies:ro
       - /mnt/Libraries/Music:/data/music:ro
       - /mnt/Libraries/Photos:/data/photos:ro
       - /mnt/Libraries/Books:/data/books:ro
+    tmpfs:
+      # L'image déclare /cache comme volume, mais le cache est redirigé vers
+      # /config/cache : on le masque pour éviter un volume anonyme inutile.
+      - /cache
     networks:
       - proxy
     labels:
-      # Exposition HTTPS via Traefik : certificat Let's Encrypt + middleware secure-headers
-      # Le port interne 8096 est résolu par le label loadbalancer.server.port
+      # Exposition HTTPS via Traefik : certificat Let's Encrypt, en-têtes de
+      # sécurité et limitation de débit. Le port interne 8096 est résolu par
+      # le label loadbalancer.server.port. Contrôle de santé fourni par l'image.
       - "traefik.enable=true"
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.kiwinet.me`)"
       - "traefik.http.routers.jellyfin.entrypoints=websecure"
       - "traefik.http.routers.jellyfin.tls.certresolver=letsencrypt"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
-      - "traefik.http.routers.jellyfin.middlewares=secure-headers@file"
+      - "traefik.http.routers.jellyfin.middlewares=secure-headers@file,rate-limit@file"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
@@ -77,7 +79,7 @@ networks:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VOLUMES
-# jellyfin-config : données persistantes (config, métadonnées, cache interne)
+# jellyfin-config : données persistantes (config, métadonnées, base, cache)
 # ─────────────────────────────────────────────────────────────────────────────
 volumes:
   jellyfin-config:
