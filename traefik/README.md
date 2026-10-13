@@ -140,7 +140,7 @@ Définis dans `dynamic/dynamic.yml` (serveur auto-hébergé) et dans `dynamic.vp
 
 **Ports publiés sur l'adresse LAN** — les ports 80 et 443 sont liés à `HOST_BIND_IP` (pas de `0.0.0.0`, pas d'IPv6). Le démarrage échoue si la variable n'est pas définie.
 
-**Sous-réseau `proxy` fixe (`172.18.0.0/16`)** — les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
+**Sous-réseaux fixes** — `proxy` (`172.18.0.0/16`) et `socket-proxy` (`172.31.255.0/29`) sont fixés pour que la création des deux réseaux, faite en parallèle, n'échoue pas par chevauchement. Les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
 
 **Rechargement `dynamic.yml` non fiable** — malgré `watch: true`, toujours redémarrer :
 ```bash
