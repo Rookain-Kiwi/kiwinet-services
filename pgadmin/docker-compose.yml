@@ -1,17 +1,25 @@
 services:
   pgadmin:
     # Image officielle PgAdmin 4 — interface web d'administration PostgreSQL
-    image: dpage/pgadmin4:latest
+    # Épinglée par empreinte (le tag n'est là que pour la lisibilité) :
+    # mise à jour volontaire, jamais automatique
+    image: dpage/pgadmin4:9.18@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
     container_name: pgadmin
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       # Compte administrateur PgAdmin — email et mot de passe de connexion à l'interface web
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      # Le démarrage échoue si l'une des deux variables est absente ou vide
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?à renseigner dans .env}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?à renseigner dans .env}
       # Mode serveur activé — authentification requise à chaque session
       PGADMIN_CONFIG_SERVER_MODE: "True"
-      # Mot de passe maître désactivé — superflu en usage mono-utilisateur self-hosted
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      # Double authentification obligatoire — application TOTP uniquement
+      # (aucun serveur de courrier requis), enrôlement imposé à la première connexion
+      PGADMIN_CONFIG_MFA_ENABLED: "True"
+      PGADMIN_CONFIG_MFA_SUPPORTED_METHODS: "['authenticator']"
+      PGADMIN_CONFIG_MFA_FORCE_REGISTRATION: "True"
     volumes:
       # Volume nommé — persiste la configuration des serveurs enregistrés dans PgAdmin
       - pgadmin-data:/var/lib/pgadmin
@@ -25,6 +33,9 @@ services:
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.kiwinet.me`)"
       - "traefik.http.routers.pgadmin.entrypoints=websecure"
       - "traefik.http.routers.pgadmin.tls.certresolver=letsencrypt"
+      # Exposition publique provisoire (jusqu'à la validation de WireGuard) :
+      # limitation de débit puis authentification de base, comme le tableau de bord Traefik
+      - "traefik.http.routers.pgadmin.middlewares=rate-limit@file,auth-basic@file"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
       # Obligatoire quand le container est sur plusieurs réseaux —
       # indique à Traefik quel réseau utiliser pour joindre PgAdmin
