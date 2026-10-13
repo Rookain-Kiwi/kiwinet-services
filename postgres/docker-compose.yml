@@ -4,11 +4,14 @@ services:
     image: postgres:16-alpine
     container_name: postgres
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       # Utilisateur administrateur de l'instance (défini dans .env)
       POSTGRES_USER: ${POSTGRES_USER}
       # Mot de passe de l'utilisateur administrateur (défini dans .env)
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Le démarrage échoue si la variable est absente ou vide
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?à renseigner dans .env}
       # Sous-répertoire de données explicite — évite le conflit de permissions
       # au premier démarrage si le répertoire parent appartient à root
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -20,7 +23,7 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       # Bind mount vers l'hôte — persistance des données hors cycle de vie du container
-      # Provisionné et chown 999:999 par Ansible (UID PostgreSQL dans l'image Alpine)
+      # Dossier créé à la main sur l'hôte, propriétaire 70:70 (UID de l'image Alpine), droits 700
       - /var/lib/postgresql/data:/var/lib/postgresql/data
     networks:
       # Réseau interne — accès pour les services sur réseau Docker bridge
