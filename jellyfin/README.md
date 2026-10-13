@@ -62,12 +62,48 @@ nano .env        # renseigner HOST_BIND_IP
 > être extraite dans le volume `jellyfin-config` (en conservant les
 > propriétaires d'origine) avant tout `docker compose up -d`.
 
+### Restauration de la configuration
+
 ```bash
+# Valider le compose, puis créer le volume et le conteneur SANS le démarrer
 docker compose config --quiet
-docker compose pull
+docker compose create
+
+# Extraire l'archive dans le volume (qui doit être vide), propriétaires conservés
+IMG=$(docker inspect -f '{{.Config.Image}}' jellyfin)
+docker run --rm --network none --user 0 --entrypoint tar \
+  -v jellyfin_jellyfin-config:/config \
+  -v "$HOME/migration-export":/archive:ro "$IMG" \
+  -xzpf /archive/<archive>.tgz -C /config --strip-components=1 --numeric-owner
+
+# Dossier racine du volume : propriétaire du compte du conteneur
+docker run --rm --network none --user 0 --entrypoint sh \
+  -v jellyfin_jellyfin-config:/config "$IMG" \
+  -c 'chown 1000:1000 /config && chmod 755 /config'
+```
+
+L'archive est montée en lecture seule et n'est jamais modifiée : elle sert de
+retour arrière.
+
+À contrôler dans la configuration restaurée, avant le démarrage :
+
+- `system.xml` : `IsStartupWizardCompleted` à `true` (sinon l'assistant de
+  configuration initiale serait exposé) ;
+- `network.xml` : `KnownProxies` doit inclure le sous-réseau du réseau Docker
+  `proxy`, et l'adresse `internal` de `PublishedServerUriBySubnet` doit être
+  celle du serveur (`HOST_BIND_IP`) ;
+- `encoding.xml` et bibliothèques : aucun reste de l'ancien matériel, chemins
+  `/data/*` conformes aux montages.
+
+### Premier démarrage
+
+```bash
 docker compose up -d
 docker compose ps        # état (healthy) attendu
 ```
+
+La première ouverture applique les migrations de base éventuelles : ne pas
+l'interrompre.
 
 ### Mise à jour
 
