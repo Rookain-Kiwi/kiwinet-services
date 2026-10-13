@@ -52,4 +52,6 @@ L'image est épinglée par empreinte : elle ne change jamais toute seule. Pour m
 - Le mot de passe maître PgAdmin ne s'applique pas ici : il ne concerne que le mode bureau, ou le mode serveur avec une authentification OAuth2, Kerberos ou Webserver.
 - Le volume `pgadmin-data` persiste la configuration des serveurs enregistrés.
 - `traefik.docker.network=proxy` est obligatoire car PgAdmin est sur deux réseaux — sans cette directive Traefik ne sait pas lequel utiliser pour le routage.
+- Sous `no-new-privileges`, PgAdmin ne peut pas écouter sur le port privilégié 80 : son port d'écoute est fixé à 8080 (`PGADMIN_LISTEN_PORT`) et Traefik route vers ce port.
+- Le message `sudo: The "no new privileges" flag is set` dans les journaux au démarrage est attendu avec ce réglage.
 - Aucun port n'est publié sur l'hôte : l'accès passe uniquement par Traefik.

@@ -15,6 +15,9 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?à renseigner dans .env}
       # Mode serveur activé — authentification requise à chaque session
       PGADMIN_CONFIG_SERVER_MODE: "True"
+      # Sous no-new-privileges, PgAdmin ne peut pas lier le port privilégié 80
+      # (repli silencieux sur 8080) : port d'écoute fixé explicitement
+      PGADMIN_LISTEN_PORT: "8080"
       # Double authentification obligatoire — application TOTP uniquement
       # (aucun serveur de courrier requis), enrôlement imposé à la première connexion
       PGADMIN_CONFIG_MFA_ENABLED: "True"
@@ -36,7 +39,8 @@ services:
       # Exposition publique provisoire (jusqu'à la validation de WireGuard) :
       # limitation de débit puis authentification de base, comme le tableau de bord Traefik
       - "traefik.http.routers.pgadmin.middlewares=rate-limit@file,auth-basic@file"
-      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+      # Port d'écoute de PgAdmin dans le container (voir PGADMIN_LISTEN_PORT)
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=8080"
       # Obligatoire quand le container est sur plusieurs réseaux —
       # indique à Traefik quel réseau utiliser pour joindre PgAdmin
       # Sans cette directive, Traefik choisit un réseau au hasard et échoue
