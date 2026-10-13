@@ -7,8 +7,7 @@
 *.env
 
 # Certificats Let's Encrypt — régénérés automatiquement par Traefik
-traefik/acme.json
-traefik/acme.vps.json
+traefik/acme*.json
 
 # Identifiants basic auth — générer avec : htpasswd -nB <utilisateur> >> traefik/.htpasswd
 traefik/.htpasswd
@@ -16,10 +15,10 @@ traefik/.htpasswd
 
 # ── Home Assistant ────────────────────────────────────────────────────────────
 # Données HA persistantes — volumineuses et contiennent des secrets
-ha/config/
+home-assistant/config/
 # Données et logs Mosquitto
-ha/mosquitto/data/
-ha/mosquitto/log/
+home-assistant/mosquitto/data/
+home-assistant/mosquitto/log/
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 postgres/.env
