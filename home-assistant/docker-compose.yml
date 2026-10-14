@@ -1,41 +1,49 @@
 ###############################################################################
-# ha/docker-compose.yml : Home Assistant + Mosquitto MQTT
-# Projet  : kiwinet-infra / ha
-# VM      : Debian 13 ARM AArch64 (Freebox Delta)
-# Accès   : https://hub.kiwinet.me (via Traefik → traefik/dynamic.yml)
+# home-assistant/docker-compose.yml : Home Assistant + Mosquitto MQTT
+# Accès   : https://hub.kiwinet.me (via Traefik, route manuelle dans
+#           traefik/dynamic.yml)
+# Prérequis : cp env.example .env (voir README)
+#
+# Images épinglées par empreinte (index multi-architecture, 14/10/2026).
+# Procédure de mise à jour : voir README.
 ###############################################################################
 
 services:
 
   # ───────────────────────────────────────────────────────────────────────────
   # HOME ASSISTANT
-  # Image officielle — supporte ARM64 nativement
   #
   # network_mode: host — OBLIGATOIRE pour la découverte mDNS
   #   Les appareils Google Cast / Chromecast / Nest utilisent le multicast
   #   sur le LAN. Sans mode host, HA ne les voit pas.
+  #   Conséquence : HA n'est pas filtré par DOCKER-USER, il écoute sur toutes
+  #   les interfaces du serveur et n'est protégé que par ufw.
   #
   # Traefik : pas de labels ici — la route est déclarée manuellement
-  #   dans traefik/dynamic.yml (pattern identique à Plex)
+  #   dans traefik/dynamic.yml
   # ───────────────────────────────────────────────────────────────────────────
-  homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+  home-assistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.10.1@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0
     container_name: home-assistant
     restart: unless-stopped
     security_opt:
-      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
-      # Nécessaire à la recréation du container — transparent au restart
-      - apparmor:unconfined
+      - no-new-privileges:true
     network_mode: host
     environment:
       - TZ=Europe/Paris
     volumes:
       - ./config:/config
-      - /mnt/Data/Backups/Technique/ha-backups:/config/backups
+      # Sauvegardes sur le disque Data : si le disque n'est pas monté, le
+      # conteneur refuse de démarrer au lieu d'écrire sur le SSD système.
+      - type: bind
+        source: /mnt/Data/Backups/Technique/ha-backups
+        target: /config/backups
+        bind:
+          create_host_path: false
       - /etc/localtime:/etc/localtime:ro
-    # Santé vérifiée via curl — start_period élevé car HA met ~60s à initialiser complètement
+    # start_period élevé : HA met ~60s à s'initialiser complètement
     healthcheck:
-      test: ["CMD-SHELL", "curl -fSs http://localhost:8123 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8123 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -43,33 +51,25 @@ services:
 
   # ───────────────────────────────────────────────────────────────────────────
   # MOSQUITTO : Broker MQTT
-  # Communication IoT locale — non exposé publiquement via Traefik
-  # Port 1883 accessible sur le LAN uniquement
+  # Non exposé publiquement via Traefik. Le port est publié sur deux adresses :
+  #   - boucle locale : pour Home Assistant (réseau hôte)
+  #   - adresse du réseau local (HOST_BIND_IP) : pour les autres clients MQTT
+  # Authentification obligatoire (voir mosquitto.conf et README).
   # ───────────────────────────────────────────────────────────────────────────
   mosquitto:
-    image: eclipse-mosquitto:latest
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
     container_name: mosquitto
     restart: unless-stopped
     security_opt:
-      # AppArmor non disponible sur ce kernel ARM (Freebox Delta)
-      # Nécessaire à la recréation du container — transparent au restart
-      - apparmor:unconfined
-    volumes:
-      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - no-new-privileges:true
     ports:
-      - "1883:1883"
-    networks:
-      - proxy
-    labels:
-      - "traefik.enable=false"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RÉSEAUX
-# proxy : réseau externe créé par ../docker-compose.yml (kiwinet-infra)
-# HA est en mode host — pas de réseau Docker pour lui
-# ─────────────────────────────────────────────────────────────────────────────
-networks:
-  proxy:
-    external: true
+      - "127.0.0.1:1883:1883"
+      - "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}:1883:1883"
+    volumes:
+      # Dossier entier en lecture seule : mosquitto.conf + passwd (gitignored)
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+    # Journaux sur stdout (gérés par Docker). tmpfs : évite le volume anonyme
+    # créé par la déclaration VOLUME de l'image sur ce chemin.
+    tmpfs:
+      - /mosquitto/log

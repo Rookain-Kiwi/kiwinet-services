@@ -19,6 +19,9 @@ home-assistant/config/
 # Données et logs Mosquitto
 home-assistant/mosquitto/data/
 home-assistant/mosquitto/log/
+# Config Mosquitto : seul mosquitto.conf est versionné (mots de passe, ACL exclus)
+home-assistant/mosquitto/config/*
+!home-assistant/mosquitto/config/mosquitto.conf
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 postgres/.env
