@@ -58,20 +58,23 @@ broker). Le fichier `passwd` est créé localement, jamais versionné. La saisie
 mot de passe est interactive.
 
 ```bash
+IMG=eclipse-mosquitto:2.1.2-alpine@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
+
 # Premier compte (crée le fichier)
-docker run --rm -it -v "$PWD/mosquitto/config:/mosquitto/config" \
-  eclipse-mosquitto:2.1.2-alpine mosquitto_passwd -c /mosquitto/config/passwd <compte>
+docker run --rm -it --entrypoint mosquitto_passwd \
+  -v "$PWD/mosquitto/config:/mosquitto/config" $IMG -c /mosquitto/config/passwd <compte>
 
 # Comptes suivants (sans -c)
-docker run --rm -it -v "$PWD/mosquitto/config:/mosquitto/config" \
-  eclipse-mosquitto:2.1.2-alpine mosquitto_passwd /mosquitto/config/passwd <compte>
+docker run --rm -it --entrypoint mosquitto_passwd \
+  -v "$PWD/mosquitto/config:/mosquitto/config" $IMG /mosquitto/config/passwd <compte>
 
 # Propriétaire de l'image (uid 1883) et droits stricts
 sudo chown 1883:1883 mosquitto/config/passwd
 sudo chmod 600 mosquitto/config/passwd
 ```
 
-Le tag de l'image doit rester identique à celui du compose.
+L'image (tag et empreinte) doit rester identique à celle du compose. `--entrypoint`
+contourne le script de démarrage de l'image.
 
 ---
 
@@ -122,20 +125,35 @@ une erreur 504.
 **Route Traefik** — déclarée manuellement dans `../traefik/dynamic.yml`.
 L'upstream doit pointer vers la gateway du réseau `proxy` (pas `127.0.0.1`).
 
-**Configuration `http` de Home Assistant** — bloc à ajouter à
-`config/configuration.yaml` (absent de la configuration restaurée), nécessaire
-derrière Traefik. À vérifier au premier test d'accès par `hub.kiwinet.me` :
+**Réglages `http` de Home Assistant** — depuis la 2026.8, ils se font dans
+l'interface (Paramètres, Système, Réseau, section HTTP server), pas dans
+`configuration.yaml`. Ils sont repris avec la configuration restaurée : rien à
+refaire après une restauration. Sur une installation neuve, derrière Traefik :
 
-```yaml
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 172.18.0.0/16   # plage du réseau proxy (docker network inspect proxy)
-```
+- activer **Trust X-Forwarded-For** et ajouter `172.18.0.0/16` aux proxys de
+  confiance (plage du réseau `proxy`, vérifiable avec `docker network inspect proxy`) ;
+  sans cela les requêtes de Traefik sont bloquées ;
+- activer **Enable IP banning** (5 tentatives) : à faire **après** les proxys de
+  confiance, sinon un bannissement atteindrait Traefik. Les bannissements
+  n'expirent pas (voir `ip_bans.yaml`).
 
-**MQTT** — authentification obligatoire. Aucun client à ce jour : Home Assistant
-n'a pas l'intégration MQTT. Un compte `homeassistant` est prévu pour elle (hôte :
-boucle locale).
+Enregistrer redémarre Home Assistant, qui demande confirmation : sans
+confirmation sous 5 minutes, les anciens réglages reviennent. Se connecter
+pour confirmer depuis le réseau local (le port 8123 y est ouvert), pas par `hub.kiwinet.me`.
+
+**MQTT** — authentification obligatoire. Home Assistant s'y connecte par
+l'intégration MQTT (hôte : boucle locale, compte `homeassistant`). Aucun autre
+client à ce jour.
+
+**Freebox** — le jeton d'application est dans `config/.storage/freebox/` (droits
+600). Il est lié au **nom de la machine** : la bibliothèque `freebox-api` compare le
+`device_name` enregistré à celui de l'hôte et, s'il diffère, réclame une nouvelle
+association, désactivée sur la Freebox. Après un changement de nom d'hôte, mettre à
+jour ce champ dans le fichier, puis recharger l'intégration.
+
+**Bluetooth** — le journal signale l'absence des capacités `NET_ADMIN` et
+`NET_RAW`. Choix volontaire : on n'ajoute pas de privilèges pour une fonction
+inutilisée.
 
 **Sauvegardes** — le dossier de sauvegardes de Home Assistant est monté depuis
 le disque Data. Si ce disque n'est pas monté, le conteneur ne démarre pas.
@@ -150,6 +168,6 @@ dans Git.
 
 Google Cast (Nest Audio, Nest Mini, Nest Hub, Google TV), Jellyfin, Music
 Assistant, Freebox, qBittorrent, Uptime Kuma, Minecraft, Android TV Remote,
-Roborock, PlayStation Network, HomeKit Controller, Thread, Met, IPP.
+Roborock, PlayStation Network, HomeKit Controller, Thread, Met, IPP, MQTT.
 
 Composants personnalisés : HACS, Xiaomi Home.
