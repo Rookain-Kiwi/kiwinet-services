@@ -122,17 +122,20 @@ une erreur 504.
 **Route Traefik** — déclarée manuellement dans `../traefik/dynamic.yml`.
 L'upstream doit pointer vers la gateway du réseau `proxy` (pas `127.0.0.1`).
 
-**Configuration `http` de Home Assistant** — dans `config/configuration.yaml` :
+**Configuration `http` de Home Assistant** — bloc à ajouter à
+`config/configuration.yaml` (absent de la configuration restaurée), nécessaire
+derrière Traefik. À vérifier au premier test d'accès par `hub.kiwinet.me` :
 
 ```yaml
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 172.18.0.0/16   # plage du réseau proxy : vérifier avec `docker network inspect proxy`
+    - 172.18.0.0/16   # plage du réseau proxy (docker network inspect proxy)
 ```
 
-**MQTT** — authentification obligatoire. Dans Home Assistant, l'intégration MQTT
-vise la boucle locale avec le compte dédié.
+**MQTT** — authentification obligatoire. Aucun client à ce jour : Home Assistant
+n'a pas l'intégration MQTT. Un compte `homeassistant` est prévu pour elle (hôte :
+boucle locale).
 
 **Sauvegardes** — le dossier de sauvegardes de Home Assistant est monté depuis
 le disque Data. Si ce disque n'est pas monté, le conteneur ne démarre pas.
@@ -145,7 +148,8 @@ dans Git.
 
 ## Intégrations actives
 
-- Google Cast (Nest Audio, Nest Mini, Nest Hub, Google TV)
-- Jellyfin (intégration native)
-- Music Assistant
-- Mosquitto MQTT (broker local)
+Google Cast (Nest Audio, Nest Mini, Nest Hub, Google TV), Jellyfin, Music
+Assistant, Freebox, qBittorrent, Uptime Kuma, Minecraft, Android TV Remote,
+Roborock, PlayStation Network, HomeKit Controller, Thread, Met, IPP.
+
+Composants personnalisés : HACS, Xiaomi Home.

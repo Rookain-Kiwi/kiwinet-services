@@ -41,6 +41,12 @@ services:
         bind:
           create_host_path: false
       - /etc/localtime:/etc/localtime:ro
+    # Rotation des journaux : le pilote json-file n'en fait aucune par défaut
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # start_period élevé : HA met ~60s à s'initialiser complètement
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8123 || exit 1"]
@@ -69,7 +75,13 @@ services:
       # Dossier entier en lecture seule : mosquitto.conf + passwd (gitignored)
       - ./mosquitto/config:/mosquitto/config:ro
       - ./mosquitto/data:/mosquitto/data
-    # Journaux sur stdout (gérés par Docker). tmpfs : évite le volume anonyme
+    # Journaux sur stdout (gérés par Docker, rotation ci-dessous). tmpfs : évite le volume anonyme
     # créé par la déclaration VOLUME de l'image sur ce chemin.
     tmpfs:
       - /mosquitto/log
+    # Rotation des journaux : le pilote json-file n'en fait aucune par défaut
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
