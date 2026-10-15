@@ -12,9 +12,10 @@ Serveur de musique multi-pièces. Accessible via `ma.kiwinet.me`.
 |-------------------|--------|----------------------------------------------|
 | `music-assistant` | `host` | Serveur de musique, pilote les récepteurs Cast |
 
-Music Assistant lit la musique de Jellyfin (fournisseur Jellyfin) et les radios
-SomaFM (flux Internet, sans compte). Il est intégré à Home Assistant, qui le
-pilote.
+Music Assistant lit la musique directement sur le disque local, par son
+fournisseur « Filesystem (local disk) » (dossier `/media/music`, en lecture
+seule), et les radios SomaFM (flux Internet, sans compte). Il n'utilise plus
+Jellyfin. Il est intégré à Home Assistant, qui le pilote.
 
 ---
 
@@ -101,15 +102,60 @@ récepteurs ne peuvent pas lire le flux.
 (interface web et API uniquement). Le flux audio ne passe pas par Traefik : il
 est servi en HTTP, directement aux récepteurs du réseau local.
 
-**Exposition publique** — la route est publique (jaquettes de l'application
-Android, bloquées en contenu mixte sinon). La protection repose sur
-l'authentification native de Music Assistant : vérifier après toute
-restauration que l'auto-inscription est désactivée.
+**Exposition publique** — la route est publique, avec limitation de débit et
+en-têtes de sécurité, sans authentification de base Traefik : la protection
+repose sur l'authentification native de Music Assistant. La route sert
+aussi les jaquettes des fichiers à Home Assistant et à l'application mobile,
+voir « URL de base ». Sans connexion sur cette route : informations du serveur
+(`/info`), page de connexion, documentation de l'API et images
+(`/imageproxy/<empreinte>`), dont l'identifiant est une empreinte de 64
+caractères. La documentation de l'API n'est pas restreinte (gain jugé marginal).
+L'option d'auto-inscription ne concerne que la
+connexion par OAuth Home Assistant : elle est masquée tant que ce fournisseur
+n'est pas chargé, et activée par défaut. La désactiver avant d'ajouter ce
+fournisseur.
+
+**Serveur de flux** — il sert l'audio et les images aux lecteurs, en HTTP, sans
+authentification, et n'est prévu que pour le réseau local (les mainteneurs
+refusent qu'il passe derrière un proxy inverse). Ne jamais lui donner de route
+Traefik ni l'ouvrir hors du réseau local.
 
 **Données** — `auth.db` (comptes), `library.db` (bibliothèque), `settings.json`
-(réglages et jetons). Les adresses héritées de l'ancienne instance (fournisseur
-Jellyfin, adresse annoncée aux récepteurs, URL de base) sont à contrôler après
-restauration.
+(réglages, valeurs chiffrées avec une clé stockée dans le même fichier). Les
+adresses héritées de l'ancienne instance (adresse annoncée aux récepteurs, URL
+de base) sont à contrôler après restauration. Traiter ces fichiers, leurs copies
+et leurs sauvegardes comme sensibles, et supprimer les copies de sécurité une
+fois l'opération validée.
+
+**Fournisseur de musique** — retirer un fournisseur supprime aussi les éléments
+fusionnés avec un autre fournisseur : lancer ensuite la synchronisation du
+fournisseur restant. Un fichier MP3 corrompu apparaît à chaque balayage comme un
+« succès partiel », sans autre effet.
+
+**Jaquette manquante** — déposer `cover.jpg` (ou `folder.jpg`, `album.jpg`) dans
+le dossier de l'album, de préférence carré et d'au moins 512 pixels, avec le
+même propriétaire et les mêmes droits que les autres fichiers du dossier
+(lecture pour tous). Le dossier de musique est monté en lecture seule dans le
+conteneur : l'écriture se fait sur l'hôte. Puis lancer « Update Metadata » sur
+l'album dans l'interface.
+
+**Démarrage** — le conteneur refuse de démarrer si le disque de musique n'est
+pas monté. Après un redémarrage de la machine, si Music Assistant est arrêté,
+vérifier le montage puis relancer `docker compose up -d`. Le fournisseur de
+fichiers n'ouvre aucune connexion réseau au démarrage, contrairement à l'ancien
+fournisseur Jellyfin qui ne se reconnectait pas après un échec.
+
+**URL de base** — réglée sur le domaine public en HTTPS (Paramètres, Système,
+Serveur Web, champ « URL de base », valeur par défaut `auto`). Avec `auto`, les
+jaquettes issues des fichiers sont annoncées en HTTP sur l'adresse du réseau
+local : Home Assistant et l'application Android ne peuvent alors pas les
+charger (contenu mixte, ou réseau local inaccessible). Conséquence : ces images
+dépendent de Traefik, du DNS et du certificat. L'audio n'est pas concerné, il a
+son propre serveur de flux, local. Retour arrière : remettre `auto`.
+
+**Nom du serveur** — défini explicitement à un nom neutre dans le même écran :
+vide, il retombe sur un nom par défaut qui contient le nom d'hôte, visible dans
+l'information publique du serveur.
 
 **Journaux** — rotation par le pilote `json-file` (10 Mo, 3 fichiers).
 
@@ -117,7 +163,9 @@ restauration.
 
 ## Intégrations
 
-- **Jellyfin** : fournisseur de musique (compte en lecture seule).
+- **Fichiers locaux** : fournisseur « Filesystem (local disk) » sur
+  `/media/music`, étiquettes et pochettes lues dans les fichiers.
 - **SomaFM** : radios en ligne, sans compte.
-- **Home Assistant** : intégration Music Assistant, à repointer vers
-  l'instance après un changement d'adresse.
+- **Home Assistant** : intégration Music Assistant, configurée sur le domaine
+  public de Music Assistant (par Traefik), à repointer après un changement
+  d'adresse.
