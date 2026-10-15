@@ -34,8 +34,9 @@ Les données vivent dans le volume nommé `music-assistant_music-assistant-data`
 
 ## Prérequis
 
-- Aucun disque de médias n'est monté dans le conteneur : la musique arrive
-  uniquement par le fournisseur Jellyfin (aucun fournisseur de fichiers locaux).
+- Le disque Libraries doit être monté : seul `/mnt/Libraries/Music` est monté
+  dans le conteneur (`/media/music`), en lecture seule. S'il est absent, le
+  conteneur refuse de démarrer.
 - Les données sont restaurées dans le volume **avant** le premier
   `docker compose up -d`. Un démarrage sur un volume vide repart d'une
   installation neuve (création de compte) par la route publique.

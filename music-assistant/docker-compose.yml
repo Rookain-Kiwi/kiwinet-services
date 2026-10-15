@@ -2,7 +2,7 @@
 # music-assistant/docker-compose.yml : Music Assistant
 # Accès   : https://ma.kiwinet.me (via Traefik, route manuelle dans
 #           traefik/dynamic/dynamic.yml) et interface web sur le réseau local
-# Musique : aucun montage, elle arrive uniquement par le fournisseur Jellyfin.
+# Musique : /mnt/Libraries/Music monté en lecture seule (fournisseur « Filesystem »).
 # Prérequis : volume de données restauré AVANT le premier démarrage (voir README)
 #
 # Image épinglée par empreinte (index multi-architecture, 14/10/2026).
@@ -24,6 +24,15 @@ services:
       - TZ=Europe/Paris
     volumes:
       - music-assistant-data:/data
+      # Musique du disque Libraries, lecture seule (fournisseur « Filesystem »).
+      # Si le disque n'est pas monté, ce dossier n'existe pas : le conteneur
+      # refuse de démarrer au lieu d'écrire sur le SSD.
+      - type: bind
+        source: /mnt/Libraries/Music
+        target: /media/music
+        read_only: true
+        bind:
+          create_host_path: false
     # Rotation des journaux : le pilote json-file n'en fait aucune par défaut
     logging:
       driver: json-file
