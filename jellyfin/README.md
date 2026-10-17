@@ -26,6 +26,7 @@ public via Traefik, et direct sur le réseau local.
 | Chemins         | Variables `JELLYFIN_*` forcées pour reproduire la structure du volume restauré : ne pas les retirer |
 | Base de données | SQLite (défaut Jellyfin). L'instance PostgreSQL du serveur n'est pas utilisée |
 | Bibliothèques   | `/mnt/Libraries/{TV Shows,Movies,Music,Photos,Books}` → `/data/*`, disque USB local, un montage par répertoire, `:ro` |
+| Sauvegardes     | Sauvegarde native de Jellyfin (manuelle), écrite dans un dossier dédié du disque `Data` monté sur `/config/data/data/backups` |
 | Accès           | `jellyfin.kiwinet.me` (HTTPS via Traefik, public) + réseau local sur `8096/tcp` et `7359/udp` |
 | Durcissement    | `no-new-privileges`, ports liés à l'adresse du serveur, `secure-headers` et `rate-limit` côté Traefik |
 
@@ -44,7 +45,8 @@ jellyfin/
 
 ## Déploiement
 
-Prérequis : Traefik déployé (réseau `proxy`), disque `Libraries` monté.
+Prérequis : Traefik déployé (réseau `proxy`), disque `Libraries` monté, dossier
+de sauvegarde créé sur le disque `Data` (voir « Sauvegardes »).
 
 ```bash
 cd /opt/kiwinet-services/jellyfin
@@ -115,8 +117,31 @@ docker compose pull && docker compose up -d
 ```
 
 Jellyfin n'a pas de mécanisme de retour en arrière : après une migration de
-base, la seule issue est de restaurer une sauvegarde. Sauvegarder le volume
-avant toute mise à jour de version majeure ou mineure.
+base, la seule issue est de restaurer une sauvegarde. Créer une sauvegarde
+native (Tableau de bord → Sauvegardes) avant toute mise à jour de version
+majeure ou mineure.
+
+---
+
+## Sauvegardes
+
+La sauvegarde native de Jellyfin (depuis la 10.11) se lance à la main, depuis le
+Tableau de bord → Sauvegardes. Elle n'a pas de planification native : à créer
+notamment avant chaque mise à jour. La restauration se fait depuis la même page
+ou avec l'argument `--restore-archive` au démarrage.
+
+Les sauvegardes sont écrites dans un dossier dédié du disque `Data`
+(`/mnt/Data/Backups/Technique/jellyfin-backups`), monté en lecture-écriture sur
+`/config/data/data/backups` et limité à ce seul dossier.
+
+- Prérequis : le dossier existe, propriétaire `1000:1000`, droits `700`.
+- Si le disque `Data` n'est pas monté, Jellyfin ne démarre pas
+  (`create_host_path: false`, comportement testé). C'est voulu : sinon les
+  sauvegardes seraient écrites sur le SSD système sans que personne le sache.
+- Une sauvegarde contient la base de Jellyfin (comptes, hachages de mots de
+  passe, clés d'API) : la traiter comme un secret.
+- Pas de copie hors site tant que la synchronisation cloud du disque `Data`
+  n'est pas en place et ne couvre pas ce dossier.
 
 ---
 

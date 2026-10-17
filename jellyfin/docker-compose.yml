@@ -53,6 +53,15 @@ services:
       - /mnt/Libraries/Music:/data/music:ro
       - /mnt/Libraries/Photos:/data/photos:ro
       - /mnt/Libraries/Books:/data/books:ro
+      # Sauvegardes natives de Jellyfin (Tableau de bord → Sauvegardes) : dossier
+      # dédié du disque Data, en lecture-écriture, limité à ce seul dossier.
+      # create_host_path: false : si Data n'est pas monté, le démarrage échoue
+      # au lieu d'écrire les sauvegardes sur le SSD système.
+      - type: bind
+        source: /mnt/Data/Backups/Technique/jellyfin-backups
+        target: /config/data/data/backups
+        bind:
+          create_host_path: false
     tmpfs:
       # L'image déclare /cache comme volume, mais le cache est redirigé vers
       # /config/cache : on le masque pour éviter un volume anonyme inutile.
