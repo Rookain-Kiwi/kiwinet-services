@@ -1,0 +1,43 @@
+services:
+  pihole:
+    container_name: pihole
+    hostname: pihole
+    # À repointer vers le digest réel (pihole/pihole@sha256:...) après le premier
+    # `docker compose pull`, convention "image épinglée par empreinte" du dépôt.
+    image: pihole/pihole:2026.07.2
+    restart: unless-stopped
+
+    # Même pattern que Home Assistant et Music Assistant : réseau hôte, filtré par ufw
+    # (pas de chaîne DOCKER-USER ici, voir Vue d'ensemble du socle).
+    network_mode: host
+
+    environment:
+      TZ: Europe/Paris
+
+      # Mot de passe admin — jamais en clair ici, sourcé du .env local (non versionné).
+      FTLCONF_webserver_api_password: ${PIHOLE_WEBPASSWORD}
+
+      # Port web déplacé pour ne pas entrer en conflit avec Traefik (80/443 déjà pris
+      # sur ce même hôte). Lié à l'adresse LAN du serveur, pas à 0.0.0.0.
+      # "o" = optionnel au démarrage (ne bloque pas si indisponible).
+      FTLCONF_webserver_port: ${PIHOLE_SERVER_IP}:8080o,[::]:8080o
+
+      # Résolveur de la box en primaire (conserve la résolution des noms locaux),
+      # résolveur public en secours — même logique que la convention DNS existante.
+      FTLCONF_dns_upstreams: ${PIHOLE_DNS_UPSTREAMS}
+
+    volumes:
+      - ./etc-pihole:/etc/pihole
+
+    # Durcissement — à valider après le premier démarrage : si une fonctionnalité
+    # réseau avancée (ARP/découverte d'appareils) manque, ajouter NET_ADMIN ici.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
