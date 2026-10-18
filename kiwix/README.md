@@ -1,8 +1,10 @@
 # kiwix
 
 Serveur Kiwix (`kiwix-serve`) exposant une copie locale de Wikipédia, française
-et anglaise avec images, via `kiwix.kiwinet.me`. Les articles sont lus dans des
-fichiers ZIM montés en lecture seule depuis le disque Data.
+et anglaise avec images, et de ressources utiles en cas de coupure durable
+d'Internet (médecine, survie, réparation, lecture, dictionnaires), via
+`kiwix.kiwinet.me`. Les contenus sont lus dans des fichiers ZIM montés en
+lecture seule depuis le disque Data.
 
 **Statut** : déployé sur le serveur x86. Lecture des articles et recherche
 dans un livre validées le 18/10/2026 (voir « Constats au déploiement »).
@@ -20,13 +22,17 @@ dans un livre validées le 18/10/2026 (voir « Constats au déploiement »).
 Limites connues :
 
 - Le ZIM est un **instantané** : pas de mise à jour incrémentale, une nouvelle
-  version remplace le fichier en entier (environ 171 Gio à retélécharger).
+  version remplace le fichier en entier (les deux Wikipédias seules pèsent
+  environ 171 Gio).
 - Pas de rythme de publication garanti : au moment du déploiement, la dernière
   version française date de mai 2026 et l'anglaise d'août 2026.
 - La recherche plein texte sur ces volumes est coûteuse en CPU et en disque.
-- **Pas de recherche globale entre les deux Wikipédias** : `kiwix-serve` refuse
+- **Pas de recherche globale entre langues différentes** : `kiwix-serve` refuse
   une recherche portant sur des ZIM de langues différentes (limite documentée,
-  réponse 400 immédiate). La recherche se fait dans un livre à la fois.
+  réponse 400 immédiate). La recherche se fait dans un livre à la fois, ou sur
+  l'ensemble des livres d'une même langue après filtrage de la langue.
+- Les collections `zimgit-*` sont des PDF : navigables, mais leur texte n'est
+  pas indexé, donc absent de la recherche.
 - **Première recherche lente sur un terme jamais lu** : quelques secondes, car
   le disque Data est un disque dur mécanique en USB ; les recherches suivantes
   répondent en une fraction de seconde (cache du système). Un SSD supprimerait
@@ -38,13 +44,25 @@ Limites connues :
 
 - Le disque Data est monté et le dossier `/mnt/Data/Sites` existe (le montage
   évite de le créer sur le SSD système : `create_host_path: false`).
-- Les deux ZIM sont présents dans ce dossier et vérifiés :
+- Les 26 ZIM sont présents dans ce dossier et vérifiés (somme SHA-256 publiée
+  par Kiwix). Les deux Wikipédias :
 
 | Fichier | Taille (octets) | SHA-256 (publié par Kiwix) |
 |---|---|---|
 | `wikipedia_fr_all_maxi_2026-05.zim` | 55 438 794 004 | `61401b1b3618afe736450a868c7205f572f590db310e044a9c72b51fbfcfb431` |
 | `wikipedia_en_all_maxi_2026-08.zim` | 127 418 087 648 | `34162d18b9f96f494eac48a73a309c72e0bc95d85f76be405d0f5de795854aa6` |
 
+  Les 24 autres, téléchargés le 18/10/2026 (environ 43 Gio au total), par thème :
+
+| Thème | Fichiers (liste complète dans le compose) |
+|---|---|
+| Médecine, survie, technologies appropriées | `mdwiki` (variante maxi), `wikem`, `zimgit-medicine`, `zimgit-water`, `zimgit-food-preparation`, `zimgit-knots`, `zimgit-post-disaster`, `irp.fas.org` (médecine militaire), `appropedia` |
+| Réparer et bricoler | `ifixit` (fr et en), Stack Exchange : cooking, diy, gardening, mechanics, outdoors, sustainability, electronics |
+| Lecture et enfants | `wikibooks` fr, `vikidia` fr et en, `gutenberg` fr |
+| Dictionnaires (sans images) | `wiktionary` fr et en |
+
+  Les sommes SHA-256 de ces 24 fichiers ne sont pas recopiées ici : elles se
+  lisent à côté de chaque fichier dans le catalogue (extension `.sha256`).
 - Le conteneur tourne avec `user: "1000:1000"` ; les ZIM sont en `644`
   (lisibles par tous) et le dossier en `755`.
 - Image `ghcr.io/kiwix/kiwix-serve` épinglée par tag et empreinte (index
@@ -75,7 +93,11 @@ Limites connues :
 
 Téléchargement en HTTPS avec reprise (`wget -c`) dans
 `/mnt/Data/Sites/.partial/`, puis vérification SHA-256 avant de déplacer le
-fichier : un ZIM incomplet ne se retrouve jamais à côté des ZIM servis.
+fichier : un ZIM incomplet ne se retrouve jamais à côté des ZIM servis. Les 24
+ZIM supplémentaires ont été téléchargés par groupes avec un script local au
+serveur (non versionné), sur ce même principe. Tous les miroirs n'ont pas tous
+les fichiers : en cas de 404 ou de débit faible, essayer un autre miroir de la
+liste publiée par le répartiteur de Kiwix.
 
 Kiwix recommande BitTorrent pour ménager ses miroirs. Il n'a pas été retenu :
 un téléchargement ponctuel ne justifie ni client BitTorrent ni connexions

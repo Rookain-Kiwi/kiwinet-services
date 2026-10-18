@@ -1,13 +1,16 @@
 ###############################################################################
-# kiwix/docker-compose.yml : Kiwix — Wikipédia hors ligne (fr + en)
+# kiwix/docker-compose.yml : Kiwix — connaissances hors ligne (Wikipédia fr + en
+#                           et ressources pratiques)
 # Projet  : kiwinet.me
 # Serveur : serveur auto-hébergé x86 (Debian 13)
 # Image   : ghcr.io/kiwix/kiwix-serve — serveur HTTP de fichiers ZIM, en
 #           lecture seule (aucune écriture, aucun compte, aucune base)
 # Accès   : kiwix.kiwinet.me (HTTPS via Traefik uniquement, aucun port publié,
 #           authentification de base portée par Traefik)
-# Usage   : Wikipédia française et anglaise (variante maxi, avec images),
-#           servies depuis /data. Fichiers ZIM listés explicitement.
+# Usage   : Wikipédia française et anglaise (variante maxi, avec images) et
+#           ressources utiles en cas de coupure durable d'Internet (médecine,
+#           survie, réparation, lecture), servies depuis /data. Fichiers ZIM
+#           listés explicitement.
 ###############################################################################
 services:
   # ───────────────────────────────────────────────────────────────────────────
@@ -35,8 +38,38 @@ services:
     # que '*.zim' : un fichier déposé par erreur dans le dossier ne sera pas
     # servi. Mise à jour d'un ZIM = nouveau nom ici, puis recréation.
     command:
+      # Encyclopédies
       - wikipedia_fr_all_maxi_2026-05.zim
       - wikipedia_en_all_maxi_2026-08.zim
+      # Médecine, survie, technologies appropriées (les zimgit-* sont des
+      # collections de PDF : navigables, mais non indexées pour la recherche)
+      - mdwiki_en_all_maxi_2025-11.zim
+      - wikem_en_all_maxi_2026-07.zim
+      - zimgit-medicine_en_2024-08.zim
+      - zimgit-water_en_2024-08.zim
+      - zimgit-food-preparation_en_2025-04.zim
+      - zimgit-knots_en_2024-08.zim
+      - zimgit-post-disaster_en_2024-05.zim
+      - irp.fas.org_en_military-medicine_2026-05.zim
+      - appropedia_en_all_maxi_2026-02.zim
+      # Réparer et bricoler
+      - ifixit_fr_all_2026-03.zim
+      - ifixit_en_all_2025-12.zim
+      - cooking.stackexchange.com_en_all_2026-07.zim
+      - diy.stackexchange.com_en_all_2026-08.zim
+      - gardening.stackexchange.com_en_all_2026-08.zim
+      - mechanics.stackexchange.com_en_all_2026-08.zim
+      - outdoors.stackexchange.com_en_all_2026-08.zim
+      - sustainability.stackexchange.com_en_all_2026-08.zim
+      - electronics.stackexchange.com_en_all_2026-08.zim
+      # Lecture et enfants
+      - wikibooks_fr_all_maxi_2026-10.zim
+      - vikidia_fr_all_maxi_2026-09.zim
+      - vikidia_en_all_maxi_2026-09.zim
+      - gutenberg_fr_all_2026-01.zim
+      # Dictionnaires (sans images)
+      - wiktionary_fr_all_nopic_2026-08.zim
+      - wiktionary_en_all_nopic_2026-08.zim
 
     # Durcissement — à valider au démarrage réel (journaux, test navigateur).
     # En cas d'échec, retirer d'abord read_only, puis cap_drop.
@@ -60,7 +93,7 @@ services:
       # modifier les ZIM. create_host_path: false évite d'écrire sur le SSD si
       # le disque Data n'est pas monté.
       # Ce dossier est répliqué vers Proton Drive avec le reste de Data (copie de
-      # secours de contenu public re-téléchargeable, environ 171 Gio).
+      # secours de contenu public re-téléchargeable, environ 215 Gio).
       - type: bind
         source: /mnt/Data/Sites
         target: /data
