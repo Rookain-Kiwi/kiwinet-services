@@ -1,0 +1,96 @@
+###############################################################################
+# kiwix/docker-compose.yml : Kiwix — Wikipédia hors ligne (fr + en)
+# Projet  : kiwinet.me
+# Serveur : serveur auto-hébergé x86 (Debian 13)
+# Image   : ghcr.io/kiwix/kiwix-serve — serveur HTTP de fichiers ZIM, en
+#           lecture seule (aucune écriture, aucun compte, aucune base)
+# Accès   : kiwix.kiwinet.me (HTTPS via Traefik uniquement, aucun port publié,
+#           authentification de base portée par Traefik)
+# Usage   : Wikipédia française et anglaise (variante maxi, avec images),
+#           servies depuis /data. Fichiers ZIM listés explicitement.
+###############################################################################
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # KIWIX : sert les ZIM de /data en HTTP (interface web + recherche)
+  # ───────────────────────────────────────────────────────────────────────────
+  kiwix:
+    # Tag + empreinte de l'index multi-architecture (amd64 inclus). À mettre à
+    # jour manuellement. Empreinte : ligne "Digest" de la sortie de
+    #   docker buildx imagetools inspect ghcr.io/kiwix/kiwix-serve:<tag>
+    # Empreinte de la 3.8.2 relevée le 18/10/2026.
+    image: ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5
+    container_name: kiwix
+    restart: unless-stopped
+    # Les ZIM sont lisibles par tous (644, dossier 755) : l'identifiant exact
+    # importe peu. Même identifiant que les autres services du serveur.
+    user: "1000:1000"
+
+    environment:
+      # Port d'écoute interne (valeur par défaut de l'image, explicite ici).
+      # Ne PAS utiliser la variable DOWNLOAD : elle ferait télécharger un ZIM
+      # au démarrage, alors que les fichiers sont déjà présents et vérifiés.
+      PORT: "8080"
+
+    # Arguments = noms de fichiers ZIM relatifs à /data. Liste explicite plutôt
+    # que '*.zim' : un fichier déposé par erreur dans le dossier ne sera pas
+    # servi. Mise à jour d'un ZIM = nouveau nom ici, puis recréation.
+    command:
+      - wikipedia_fr_all_maxi_2026-05.zim
+      - wikipedia_en_all_maxi_2026-08.zim
+
+    # Durcissement — à valider au démarrage réel (journaux, test navigateur).
+    # En cas d'échec, retirer d'abord read_only, puis cap_drop.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Rotation des journaux : le pilote par défaut n'en fait aucune.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    volumes:
+      # Bind mount explicite, en lecture seule : le conteneur ne peut jamais
+      # modifier les ZIM. create_host_path: false évite d'écrire sur le SSD si
+      # le disque Data n'est pas monté.
+      # Ce dossier ne doit PAS être répliqué vers Proton Drive : contenu public
+      # re-téléchargeable (environ 171 Gio).
+      - type: bind
+        source: /mnt/Data/Sites
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+
+    networks:
+      - proxy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kiwix.rule=Host(`kiwix.kiwinet.me`)"
+      - "traefik.http.routers.kiwix.entrypoints=websecure"
+      - "traefik.http.routers.kiwix.tls.certresolver=letsencrypt"
+      - "traefik.http.services.kiwix.loadbalancer.server.port=8080"
+      # secure-headers : durcissement HTTP standard (HSTS, anti-clickjacking, etc.)
+      # rate-limit : protection contre le scraping/abus, vu l'exposition publique
+      # (la recherche plein texte sur ces ZIM est coûteuse en CPU et en disque).
+      # Si la page de lecture reste vide, suspecter X-Frame-Options de
+      # secure-headers (le lecteur Kiwix affiche les articles dans un cadre) :
+      # prévoir alors un middleware dédié, sur le modèle de komga-headers.
+      # auth-basic : kiwix-serve n'a aucune authentification propre ; elle est
+      # donc portée par Traefik. Ordre voulu : rate-limit AVANT auth-basic, pour
+      # que les essais de mots de passe soient eux aussi limités en débit.
+      - "traefik.http.routers.kiwix.middlewares=secure-headers@file,rate-limit@file,auth-basic@file"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RÉSEAUX
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  proxy:
+    external: true
