@@ -4,8 +4,8 @@ Serveur Kiwix (`kiwix-serve`) exposant une copie locale de Wikipédia, français
 et anglaise avec images, via `kiwix.kiwinet.me`. Les articles sont lus dans des
 fichiers ZIM montés en lecture seule depuis le disque Data.
 
-**Statut** : compose rédigé, pas encore déployé (voir « À valider au premier
-démarrage »). Ce README sera mis à jour après validation.
+**Statut** : déployé sur le serveur x86. Lecture des articles et recherche
+dans un livre validées le 18/10/2026 (voir « Constats au déploiement »).
 
 ---
 
@@ -24,6 +24,13 @@ Limites connues :
 - Pas de rythme de publication garanti : au moment du déploiement, la dernière
   version française date de mai 2026 et l'anglaise d'août 2026.
 - La recherche plein texte sur ces volumes est coûteuse en CPU et en disque.
+- **Pas de recherche globale entre les deux Wikipédias** : `kiwix-serve` refuse
+  une recherche portant sur des ZIM de langues différentes (limite documentée,
+  réponse 400 immédiate). La recherche se fait dans un livre à la fois.
+- **Première recherche lente sur un terme jamais lu** : quelques secondes, car
+  le disque Data est un disque dur mécanique en USB ; les recherches suivantes
+  répondent en une fraction de seconde (cache du système). Un SSD supprimerait
+  cet écart.
 
 ---
 
@@ -139,12 +146,14 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
 
 ---
 
-## À valider au premier démarrage
+## Constats au déploiement
 
-- Le lecteur affiche les articles et les résultats de recherche avec le
-  middleware `secure-headers-sameorigin` (correctif du blocage constaté avec
-  `secure-headers`, causé par `X-Frame-Options: DENY`) : à confirmer dans le
-  navigateur après application du correctif.
-- Le durcissement (`read_only`, `cap_drop`) n'empêche pas le démarrage. Sinon,
-  retirer d'abord `read_only`, puis `cap_drop`.
-- L'authentification de base ne gêne pas les requêtes du lecteur.
+- Avec `secure-headers`, le lecteur s'affichait en erreur (« n'autorise pas la
+  connexion ») à cause de `X-Frame-Options: DENY`. Corrigé par
+  `secure-headers-sameorigin`. Après un changement d'en-têtes, le navigateur
+  peut garder l'ancienne réponse en cache : vider les données du site, ou
+  tester en fenêtre privée.
+- Le durcissement (`read_only`, `cap_drop`) n'empêche pas le démarrage.
+- L'authentification de base ne gêne pas le lecteur.
+- La recherche globale est refusée entre langues différentes ; la recherche
+  dans un livre fonctionne (voir Limites connues).
