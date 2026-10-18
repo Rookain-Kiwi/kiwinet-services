@@ -47,8 +47,12 @@ Limites connues :
   modifier le compose.
 - Enregistrement DNS `kiwix.kiwinet.me` créé et résolu **avant** le premier
   démarrage (validation Let's Encrypt par HTTP).
-- Middlewares `secure-headers`, `rate-limit` et `auth-basic` présents dans
-  `traefik/dynamic/dynamic.yml`.
+- Middlewares `secure-headers-sameorigin`, `rate-limit` et `auth-basic`
+  présents dans `traefik/dynamic/dynamic.yml`. `secure-headers-sameorigin` est
+  une copie de `secure-headers` où seul l'en-tête anti-cadre change
+  (`SAMEORIGIN` au lieu de `DENY`), indispensable au lecteur Kiwix (voir
+  Sécurité). Il est réutilisable par tout service qui affiche ses propres
+  pages dans un cadre ; les autres gardent `secure-headers`.
 - **Exclusion de la synchronisation Proton Drive** : le volume Data y est
   répliqué, tout fichier déposé dans `/mnt/Data/Sites` y serait donc envoyé
   (environ 171 Gio de contenu public re-téléchargeable). La synchronisation
@@ -118,8 +122,13 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
   quiconque a accès à Kiwix détient les identifiants du dashboard. Acceptable
   tant que l'administrateur est le seul utilisateur ; avant tout partage de
   l'accès, créer un middleware dédié avec son propre fichier d'utilisateurs.
-- Middlewares `secure-headers` et `rate-limit` appliqués (voir
-  `traefik/dynamic/dynamic.yml`).
+- Middlewares `secure-headers-sameorigin` et `rate-limit` appliqués (voir
+  `traefik/dynamic/dynamic.yml`). Avec `secure-headers`, le lecteur Kiwix
+  s'affichait en erreur (« n'autorise pas la connexion ») : l'en-tête
+  `X-Frame-Options: DENY` interdit le cadre dans lequel le lecteur charge les
+  articles et les résultats de recherche. `secure-headers-sameorigin` autorise
+  le cadre pour le même site uniquement (aucun autre site ne peut cadrer
+  Kiwix). Cet assouplissement est à réserver aux services qui en ont besoin.
 - ZIM montés en **lecture seule** : le conteneur ne peut rien modifier.
 - Conteneur durci : `no-new-privileges`, toutes les capacités retirées, système
   de fichiers en lecture seule, rotation des journaux.
@@ -132,10 +141,10 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
 
 ## À valider au premier démarrage
 
-- Le lecteur affiche bien les articles. Hypothèse à tester : l'en-tête
-  anti-cadre du middleware `secure-headers` pourrait bloquer le lecteur, qui
-  charge les articles dans un cadre. Le cas échéant, créer un middleware
-  dédié.
+- Le lecteur affiche les articles et les résultats de recherche avec le
+  middleware `secure-headers-sameorigin` (correctif du blocage constaté avec
+  `secure-headers`, causé par `X-Frame-Options: DENY`) : à confirmer dans le
+  navigateur après application du correctif.
 - Le durcissement (`read_only`, `cap_drop`) n'empêche pas le démarrage. Sinon,
   retirer d'abord `read_only`, puis `cap_drop`.
 - L'authentification de base ne gêne pas les requêtes du lecteur.

@@ -77,16 +77,18 @@ services:
       - "traefik.http.routers.kiwix.entrypoints=websecure"
       - "traefik.http.routers.kiwix.tls.certresolver=letsencrypt"
       - "traefik.http.services.kiwix.loadbalancer.server.port=8080"
-      # secure-headers : durcissement HTTP standard (HSTS, anti-clickjacking, etc.)
+      # secure-headers-sameorigin : même durcissement HTTP que secure-headers
+      # (HSTS, nosniff, etc.), sauf X-Frame-Options en SAMEORIGIN au lieu de
+      # DENY : le lecteur Kiwix affiche les articles et les résultats de
+      # recherche dans un cadre de sa propre page. Seul le même site peut cadrer
+      # ces pages (pas d'autre site). Variante à réserver aux services qui en
+      # ont besoin : secure-headers reste le choix par défaut.
       # rate-limit : protection contre le scraping/abus, vu l'exposition publique
       # (la recherche plein texte sur ces ZIM est coûteuse en CPU et en disque).
-      # Si la page de lecture reste vide, suspecter X-Frame-Options de
-      # secure-headers (le lecteur Kiwix affiche les articles dans un cadre) :
-      # prévoir alors un middleware dédié, sur le modèle de komga-headers.
       # auth-basic : kiwix-serve n'a aucune authentification propre ; elle est
       # donc portée par Traefik. Ordre voulu : rate-limit AVANT auth-basic, pour
       # que les essais de mots de passe soient eux aussi limités en débit.
-      - "traefik.http.routers.kiwix.middlewares=secure-headers@file,rate-limit@file,auth-basic@file"
+      - "traefik.http.routers.kiwix.middlewares=secure-headers-sameorigin@file,rate-limit@file,auth-basic@file"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RÉSEAUX
