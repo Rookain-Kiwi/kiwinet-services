@@ -151,8 +151,9 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
 - Avec `secure-headers`, le lecteur s'affichait en erreur (« n'autorise pas la
   connexion ») à cause de `X-Frame-Options: DENY`. Corrigé par
   `secure-headers-sameorigin`. Après un changement d'en-têtes, le navigateur
-  peut garder l'ancienne réponse en cache : vider les données du site, ou
-  tester en fenêtre privée.
+  peut garder l'ancienne réponse en cache : vider le cache du navigateur
+  (Ctrl+Maj+Suppr, « Images et fichiers en cache » seulement), ou tester en
+  fenêtre privée.
 - Le durcissement (`read_only`, `cap_drop`) n'empêche pas le démarrage.
 - L'authentification de base ne gêne pas le lecteur.
 - La recherche globale est refusée entre langues différentes ; la recherche
