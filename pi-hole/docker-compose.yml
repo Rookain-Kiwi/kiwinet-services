@@ -28,12 +28,13 @@ services:
     volumes:
       - ./etc-pihole:/etc/pihole
 
-    # Durcissement — à valider après le premier démarrage : si une fonctionnalité
-    # réseau avancée (ARP/découverte d'appareils) manque, ajouter NET_ADMIN ici.
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    # Pas de cap_drop/no-new-privileges ici, contrairement aux autres services :
+    # FTL a besoin du jeu de capacités par défaut de Docker (CHOWN, SETFCAP...)
+    # pour s'auto-attribuer les capacités réseau sur son propre binaire au
+    # démarrage (écoute du port 53 sans tourner en root permanent). Testé et
+    # confirmé en échec avec cap_drop: ALL le 18/10/2026 (voir Décisions).
+    # NET_ADMIN non ajouté : nécessaire seulement pour le serveur DHCP de
+    # Pi-hole, rôle qui reste à la Freebox.
 
     logging:
       driver: json-file
