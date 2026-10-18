@@ -27,6 +27,23 @@ http:
         customResponseHeaders:
           X-Powered-By: ""            # Masquer la stack technique
           Server: ""
+    
+    # Variante de secure-headers pour les services qui affichent leurs propres
+    # pages dans un cadre (ex. lecteur Kiwix) : seul X-Frame-Options diffère
+    # (SAMEORIGIN au lieu de DENY). À réserver à ces services ; garder les deux
+    # blocs synchronisés (HSTS, referrerPolicy, etc.).
+    secure-headers-sameorigin:
+      headers:
+        stsSeconds: 31536000          # HSTS 1 an
+        stsIncludeSubdomains: true
+        stsPreload: true
+        customFrameOptionsValue: "SAMEORIGIN"  # cadre autorisé depuis le même site uniquement
+        contentTypeNosniff: true      # Anti-MIME sniffing
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Powered-By: ""            # Masquer la stack technique
+          Server: ""
 
     # Limitation de débit pour les endpoints publics.
     rate-limit:
