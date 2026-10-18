@@ -11,9 +11,10 @@ services:
 
   # ───────────────────────────────────────────────────────────────────────────
   # SOCKET-PROXY : seul conteneur qui touche au socket Docker.
-  # Traefik n'a besoin que de lire la liste des conteneurs (CONTAINERS=1) ;
-  # toute écriture est refusée (POST=0 par défaut). Réseau interne : aucune
-  # route vers Internet ni vers le réseau proxy.
+  # Lecture seule de l'API : conteneurs (CONTAINERS=1) pour Traefik et Alloy,
+  # réseaux (NETWORKS=1) pour la découverte des conteneurs d'Alloy (supervision,
+  # dépôt kiwinet-observability). Toute écriture est refusée (POST=0 par défaut).
+  # Réseau interne : aucune route vers Internet ni vers le réseau proxy.
   # ───────────────────────────────────────────────────────────────────────────
   socket-proxy:
     image: tecnativa/docker-socket-proxy:latest@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
@@ -23,6 +24,7 @@ services:
       - no-new-privileges:true
     environment:
       CONTAINERS: 1
+      NETWORKS: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -53,8 +55,11 @@ services:
       - ./.htpasswd:/etc/traefik/.htpasswd:ro          # Identifiants basic auth (gitignored)
 
     networks:
-      - proxy
-      - socket-proxy
+      proxy:
+      socket-proxy:
+      traefik-metrics:
+        # Adresse fixe : le point d'entrée « metrics » (traefik.yml) n'écoute que dessus
+        ipv4_address: 172.31.255.10
 
     labels:
       # Route du dashboard Traefik — limitation de débit PUIS basic auth
@@ -90,3 +95,12 @@ networks:
       config:
         - subnet: 172.31.255.0/29
           gateway: 172.31.255.1
+  # traefik-metrics : interne, ne contient que Traefik et Prometheus (supervision).
+  # Sous-réseau fixé pour la même raison que les deux autres (création en parallèle).
+  traefik-metrics:
+    name: traefik-metrics
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.255.8/29
+          gateway: 172.31.255.9

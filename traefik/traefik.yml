@@ -52,6 +52,22 @@ entryPoints:
   websecure:
     address: ":443"
 
+  # Port 8082 : métriques Prometheus. Lié à l'adresse fixe du réseau interne
+  # traefik-metrics (docker-compose.yml) : joignable par Prometheus seulement, ni
+  # par les autres conteneurs du réseau proxy, ni depuis Internet. Port non publié.
+  metrics:
+    address: "172.31.255.10:8082"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MÉTRIQUES : Prometheus (supervision, dépôt kiwinet-observability)
+# ─────────────────────────────────────────────────────────────────────────────
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true   # peu de routeurs : cardinalité faible
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CERTIFICATS SSL : Let's Encrypt (HTTP Challenge)
 #

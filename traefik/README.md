@@ -11,8 +11,9 @@ Point d'entrée unique de l'hôte. Aucun service n'est exposé publiquement sans
 - Reverse proxy HTTP/HTTPS avec routing par domaine
 - Gestion SSL automatique via Let's Encrypt (HTTP Challenge)
 - TCP passthrough pour Minecraft (port 25565) — VPS uniquement
-- Création du réseau Docker `proxy` (sous-réseau fixe)
+- Création des réseaux Docker `proxy`, `socket-proxy` et `traefik-metrics` (sous-réseaux fixes)
 - Accès à l'API Docker en lecture seule via `socket-proxy` (pas de socket monté dans Traefik)
+- Métriques Prometheus pour la supervision, sur un point d'entrée dédié (voir « Métriques Prometheus »)
 
 ---
 
@@ -134,13 +135,28 @@ Définis dans `dynamic/dynamic.yml` (serveur auto-hébergé) et dans `dynamic.vp
 
 ---
 
+## Métriques Prometheus
+
+Traefik expose ses métriques à la supervision (Prometheus, dépôt `kiwinet-observability`) sur un point d'entrée dédié. Serveur auto-hébergé uniquement : le VPS n'a pas de supervision.
+
+- point d'entrée `metrics`, port 8082, **non publié** ;
+- réseau `traefik-metrics` : interne (aucune route vers Internet), il ne contient que Traefik et Prometheus ;
+- le point d'entrée est lié à l'adresse fixe de Traefik sur ce réseau (`172.31.255.10`) : sans cette liaison, il écouterait aussi sur `proxy` et les autres conteneurs exposés (Jellyfin, pgAdmin…) pourraient lire les métriques ;
+- étiquettes d'entrées, de services et de routeurs activées (peu de routeurs : cardinalité faible).
+
+Prometheus rejoint le réseau `traefik-metrics` et active le job `traefik` selon le README de `kiwinet-observability`. Contrôle : la cible `traefik` est à l'état `up` dans Prometheus.
+
+Après modification des réseaux ou des variables de `docker-compose.yml`, appliquer par `docker compose up -d` : un `restart` ne prend pas en compte les changements du compose.
+
+---
+
 ## Points critiques
 
-**Docker lu via `socket-proxy`** — Traefik ne monte plus le socket Docker : il lit la liste des conteneurs par `socket-proxy` (réseau interne, `CONTAINERS=1`, lecture seule). Un service à exposer doit porter `traefik.enable=true` et être sur le réseau `proxy`.
+**Docker lu via `socket-proxy`** — Traefik ne monte plus le socket Docker : il lit la liste des conteneurs par `socket-proxy` (réseau interne, `CONTAINERS=1`, `NETWORKS=1`, lecture seule). `NETWORKS=1` sert Alloy (supervision, dépôt `kiwinet-observability`) : sa découverte des conteneurs échoue, sans aucune cible, s'il ne peut pas lister les réseaux. Les clients du proxy (Traefik, Alloy) peuvent lire les conteneurs, variables d'environnement comprises, et la liste des réseaux : limite connue du proxy, à garder en tête pour les secrets passés en variables. Un service à exposer doit porter `traefik.enable=true` et être sur le réseau `proxy`.
 
 **Ports publiés sur l'adresse LAN** — les ports 80 et 443 sont liés à `HOST_BIND_IP` (pas de `0.0.0.0`, pas d'IPv6). Le démarrage échoue si la variable n'est pas définie.
 
-**Sous-réseaux fixes** — `proxy` (`172.18.0.0/16`) et `socket-proxy` (`172.31.255.0/29`) sont fixés pour que la création des deux réseaux, faite en parallèle, n'échoue pas par chevauchement. Les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
+**Sous-réseaux fixes** — `proxy` (`172.18.0.0/16`), `socket-proxy` (`172.31.255.0/29`) et `traefik-metrics` (`172.31.255.8/29`) sont fixés pour que la création des trois réseaux, faite en parallèle, n'échoue pas par chevauchement. Les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
 
 **Rechargement `dynamic.yml` non fiable** — malgré `watch: true`, toujours redémarrer :
 ```bash
