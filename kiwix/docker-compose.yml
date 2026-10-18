@@ -59,8 +59,8 @@ services:
       # Bind mount explicite, en lecture seule : le conteneur ne peut jamais
       # modifier les ZIM. create_host_path: false évite d'écrire sur le SSD si
       # le disque Data n'est pas monté.
-      # Ce dossier ne doit PAS être répliqué vers Proton Drive : contenu public
-      # re-téléchargeable (environ 171 Gio).
+      # Ce dossier est répliqué vers Proton Drive avec le reste de Data (copie de
+      # secours de contenu public re-téléchargeable, environ 171 Gio).
       - type: bind
         source: /mnt/Data/Sites
         target: /data
