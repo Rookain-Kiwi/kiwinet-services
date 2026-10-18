@@ -78,16 +78,13 @@ Limites connues :
   (`SAMEORIGIN` au lieu de `DENY`), indispensable au lecteur Kiwix (voir
   Sécurité). Il est réutilisable par tout service qui affiche ses propres
   pages dans un cadre ; les autres gardent `secure-headers`.
-- **Synchronisation Proton Drive** : le volume Data y est répliqué, donc
-  `/mnt/Data/Sites` aussi (décision du 18/10/2026 : l'exclusion d'abord
-  envisagée est écartée, la capacité du cloud suffit). C'est une copie de
-  secours de contenu public re-téléchargeable. Points à vérifier avant la
-  première exécution de la synchronisation (pas encore redéployée sur le
-  serveur) : les très gros fichiers (un ZIM dépasse 100 Gio) sont acceptés par
-  Proton Drive et par l'outil de synchronisation, et le sort du sous-dossier
-  `.partial/` (téléchargements en cours). Les suppressions n'étant pas
-  répercutées vers le cloud, les anciennes versions de ZIM y restent après une
-  mise à jour : ménage manuel.
+- **Synchronisation Proton Drive** : `/mnt/Data/Sites` ne doit pas être
+  répliqué (décision du 18/10/2026, après avoir envisagé de l'inclure : une
+  copie dans le cloud n'a aucune valeur ici, le contenu est public et
+  re-téléchargeable, et le cloud est inaccessible pendant une coupure
+  d'Internet). La synchronisation n'étant pas encore redéployée sur le serveur,
+  l'exclusion est à configurer à son redéploiement, avant sa première
+  exécution : sans elle, plus de 200 Gio partiraient vers le cloud.
 
 ### Obtenir les ZIM
 
@@ -141,9 +138,7 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
 5. Remplacer le nom du fichier dans la liste `command` du compose, mettre à
    jour le tableau ci-dessus, puis `docker compose up -d --force-recreate`.
 6. Contrôler dans le navigateur. Ne supprimer l'ancien ZIM qu'ensuite : les
-   deux versions coexistent un temps, prévoir l'espace disque. La suppression
-   n'est pas répercutée vers Proton Drive : supprimer aussi l'ancienne version
-   côté cloud.
+   deux versions coexistent un temps, prévoir l'espace disque.
 
 ---
 
@@ -170,8 +165,8 @@ recherche plein texte s'applique à la bibliothèque ou à un ZIM choisi.
   de fichiers en lecture seule, rotation des journaux.
 - Ne **jamais** utiliser la variable `DOWNLOAD` de l'image : elle fait
   télécharger un fichier au démarrage du conteneur.
-- Le dossier des ZIM est répliqué vers Proton Drive avec le reste de Data (voir
-  Prérequis) : contenu public, aucun secret n'y est stocké.
+- Le dossier des ZIM ne doit pas entrer dans la synchronisation vers Proton
+  Drive (voir Prérequis).
 
 ---
 
