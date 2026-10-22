@@ -13,8 +13,12 @@ services:
     environment:
       TZ: Europe/Paris
 
-      # Mot de passe admin — jamais en clair ici, sourcé du .env local (non versionné).
-      FTLCONF_webserver_api_password: ${PIHOLE_WEBPASSWORD}
+      # Mot de passe admin : lu depuis un secret Docker (fichier réservé à root sur
+      # l'hôte, hors du dépôt), jamais en variable d'environnement (visible par
+      # docker inspect, donc par tout client du proxy de socket). WEBPASSWORD_FILE
+      # attend le NOM du secret (exemple de la doc officielle de Pi-hole).
+      # Ne PAS définir FTLCONF_webserver_api_password : il ferait ignorer le fichier.
+      WEBPASSWORD_FILE: pihole_webpasswd
 
       # Port web déplacé pour ne pas entrer en conflit avec Traefik (80/443 déjà pris
       # sur ce même hôte). Lié à l'adresse LAN du serveur, pas à 0.0.0.0.
@@ -27,6 +31,9 @@ services:
 
     volumes:
       - ./etc-pihole:/etc/pihole
+
+    secrets:
+      - pihole_webpasswd
 
     # Pas de cap_drop/no-new-privileges ici, contrairement aux autres services :
     # FTL a besoin du jeu de capacités par défaut de Docker (CHOWN, SETFCAP...)
@@ -41,3 +48,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+secrets:
+  pihole_webpasswd:
+    # Fichier créé à la main sur le serveur (propriétaire root, mode 600), absent du dépôt.
+    file: /etc/kiwinet/secrets/pihole_webpasswd
