@@ -10,9 +10,13 @@ services:
       - no-new-privileges:true
     environment:
       # Compte administrateur PgAdmin — email et mot de passe de connexion à l'interface web
-      # Le démarrage échoue si l'une des deux variables est absente ou vide
+      # L'email reste une variable d'environnement (ce n'est pas un secret). Le mot de passe
+      # est lu depuis un secret Docker (fichier hors dépôt, lisible seulement par l'UID 5050
+      # de PgAdmin), jamais en variable d'environnement (visible par docker inspect, donc
+      # par tout client du proxy de socket).
+      # Le démarrage échoue si l'email est absent ou vide, ou si le fichier de secret manque
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?à renseigner dans .env}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?à renseigner dans .env}
+      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/pgadmin_default_password
       # Mode serveur activé — authentification requise à chaque session
       PGADMIN_CONFIG_SERVER_MODE: "True"
       # Sous no-new-privileges, PgAdmin ne peut pas lier le port privilégié 80
@@ -26,6 +30,8 @@ services:
     volumes:
       # Volume nommé — persiste la configuration des serveurs enregistrés dans PgAdmin
       - pgadmin-data:/var/lib/pgadmin
+    secrets:
+      - pgadmin_default_password
     networks:
       # proxy — permet à Traefik de router le trafic HTTPS entrant vers PgAdmin
       # db — permet à PgAdmin d'atteindre le container postgres
@@ -55,3 +61,8 @@ networks:
     external: true
   db:
     external: true
+
+secrets:
+  pgadmin_default_password:
+    # Fichier créé à la main sur le serveur (propriétaire UID 5050, mode 400), absent du dépôt.
+    file: /etc/kiwinet/secrets/pgadmin_default_password
