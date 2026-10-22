@@ -9,9 +9,11 @@ services:
     environment:
       # Utilisateur administrateur de l'instance (défini dans .env)
       POSTGRES_USER: ${POSTGRES_USER}
-      # Mot de passe de l'utilisateur administrateur (défini dans .env)
-      # Le démarrage échoue si la variable est absente ou vide
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?à renseigner dans .env}
+      # Mot de passe de l'utilisateur administrateur : lu depuis un secret Docker (fichier
+      # hors dépôt, propriétaire 70:70 comme le dossier de données, mode 400), jamais en
+      # variable d'environnement (visible par docker inspect, donc par tout client du
+      # proxy de socket). Le démarrage échoue si le fichier de secret manque.
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       # Sous-répertoire de données explicite — évite le conflit de permissions
       # au premier démarrage si le répertoire parent appartient à root
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -25,6 +27,8 @@ services:
       # Bind mount vers l'hôte — persistance des données hors cycle de vie du container
       # Dossier créé à la main sur l'hôte, propriétaire 70:70 (UID de l'image Alpine), droits 700
       - /var/lib/postgresql/data:/var/lib/postgresql/data
+    secrets:
+      - postgres_password
     networks:
       # Réseau interne — accès pour les services sur réseau Docker bridge
       - db
@@ -40,3 +44,8 @@ networks:
   # Réseau db déclaré externe — créé une fois sur l'hôte, partagé entre les stacks
   db:
     external: true
+
+secrets:
+  postgres_password:
+    # Fichier créé à la main sur le serveur (propriétaire 70:70, mode 400), absent du dépôt
+    file: /etc/kiwinet/secrets/postgres_password
