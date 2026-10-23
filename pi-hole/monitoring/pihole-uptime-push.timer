@@ -1,0 +1,10 @@
+[Unit]
+Description=Déclenche le test de résolution Pi-hole / push Uptime Kuma toutes les 2 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

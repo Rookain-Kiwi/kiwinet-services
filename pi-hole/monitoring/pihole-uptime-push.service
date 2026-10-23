@@ -1,0 +1,8 @@
+[Unit]
+Description=Test de résolution DNS via Pi-hole et envoi du résultat à Uptime Kuma
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kiwinet-services/pi-hole/monitoring/uptime-kuma-push.sh
