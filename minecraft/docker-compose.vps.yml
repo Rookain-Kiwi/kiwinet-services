@@ -15,7 +15,9 @@ services:
   # le VPS ne définit pas de subnet figé pour ce réseau, contrairement à la VM)
   # ───────────────────────────────────────────────────────────────────────────
   minecraft:
-    image: itzg/minecraft-server:latest
+    # Image épinglée par empreinte (index multi-architecture) : l'empreinte fait foi,
+    # le tag "latest" n'est conservé que comme repère d'origine.
+    image: itzg/minecraft-server:latest@sha256:59feb0a1ef286f20a20560c56adf5b927155bfa842951f5db8b8bbc5a1a3ebde
     container_name: minecraft
     restart: unless-stopped
     environment:
@@ -40,12 +42,17 @@ services:
       LEVEL: "kiwinet"
       # RCON : accès console à distance sans entrer dans le conteneur
       ENABLE_RCON: "true"
-      RCON_PASSWORD: ${RCON_PASSWORD}
+      # Mot de passe lu depuis un secret Docker (fichier réservé à root sur l'hôte,
+      # hors du dépôt), jamais en variable d'environnement (visible par docker
+      # inspect, donc par tout client du socket Docker).
+      RCON_PASSWORD_FILE: /run/secrets/minecraft_rcon_password
       RCON_PORT: "25575"
       # Plugins téléchargés automatiquement depuis Modrinth au démarrage
       MODRINTH_PROJECTS: ""
     volumes:
       - minecraft-data:/data
+    secrets:
+      - minecraft_rcon_password
     networks:
       - proxy
     labels:
@@ -58,6 +65,14 @@ services:
 networks:
   proxy:
     external: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECRETS
+# ─────────────────────────────────────────────────────────────────────────────
+secrets:
+  minecraft_rcon_password:
+    # Fichier créé à la main sur le VPS (propriétaire root, mode 600), absent du dépôt.
+    file: /etc/kiwinet/secrets/minecraft_rcon_password
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VOLUMES
