@@ -50,6 +50,25 @@ EOF
 
 ---
 
+## Variante VPS : mot de passe RCON en secret
+
+Le compose du VPS (`docker-compose.vps.yml`) ne lit plus `RCON_PASSWORD` dans le `.env` : le mot de passe vient d'un secret Docker, fichier créé à la main sur le VPS et absent du dépôt.
+
+- Fichier : `/etc/kiwinet/secrets/minecraft_rcon_password`, propriétaire UID 1000, mode 400.
+- Le propriétaire doit être l'UID 1000 : l'image démarre sous cet utilisateur, et un fichier réservé à root fait boucler le conteneur (`Permission denied` au démarrage).
+- Raison : une variable d'environnement se lit avec `docker inspect`, donc par tout client du socket Docker.
+- Le mot de passe reste écrit dans `server.properties` du volume de données (Minecraft en a besoin).
+
+Console RCON sur le VPS, avec le secret passé le temps d'un appel :
+
+```bash
+docker exec minecraft sh -c 'RCON_PASSWORD="$(cat /run/secrets/minecraft_rcon_password)" rcon-cli list'
+```
+
+L'option `rcon-cli --config /data/.rcon-cli.yaml` échoue avec le mot de passe actuel (constaté). Cause probable, non vérifiée : le mot de passe contient un antislash, que le fichier YAML généré par l'image n'échappe pas.
+
+---
+
 ## Déploiement
 
 ```bash
