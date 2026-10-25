@@ -11,8 +11,11 @@ Environment=BACKUP_DIR=/mnt/Data/Backups/Technique/postgresql-backups
 Environment=MOUNT_POINT=/mnt/Data
 Environment=KEEP=7
 TimeoutStartSec=1h
-# Lancé par bash : le script n'a pas besoin de droit d'exécution et /mnt/Data est en noexec.
-ExecStart=/usr/bin/bash /opt/kiwinet-services/postgres/backup/pg-backup.sh
+# Le script tourne en root : il est exécuté depuis une copie appartenant à root, jamais
+# depuis le dépôt (modifiable par le compte d'administration), pour qu'un dépôt altéré ne
+# donne pas de code root. Copie faite à la main avec sudo install, à chaque mise à jour.
+# Lancé par bash : le script n'a pas besoin de droit d'exécution.
+ExecStart=/usr/bin/bash /usr/local/sbin/pg-backup.sh
 # Restrictions : lecture seule partout, sauf le dossier des sauvegardes et le verrou.
 NoNewPrivileges=true
 PrivateTmp=true
