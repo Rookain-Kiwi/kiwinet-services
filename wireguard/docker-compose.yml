@@ -18,13 +18,21 @@ services:
 
   # ───────────────────────────────────────────────────────────────────────────
   # WG-EASY : serveur WireGuard + interface web de gestion des pairs
-  # Tag majeur épinglé (":15") — jamais ":latest", qui pointe vers la v14
-  # côté upstream (cf. doc officielle wg-easy, convention de tags).
+  # Image épinglée par version et par empreinte (index multi-architecture) :
+  # l'empreinte fait foi. Jamais ":latest", qui pointe vers la v14 côté upstream
+  # (cf. doc officielle wg-easy, convention de tags).
   # ───────────────────────────────────────────────────────────────────────────
   wg-easy:
-    image: ghcr.io/wg-easy/wg-easy:15
+    image: ghcr.io/wg-easy/wg-easy:15.4.0@sha256:0e7bc9d34e86ddcaa92bc700d4d7dc9b33291dbc07ac8d13382f7c2095f949ec
     container_name: wg-easy
     restart: unless-stopped
+
+    environment:
+      # Journaux de débogage désactivés : l'image active par défaut les espaces
+      # Server, WireGuard, Database et CMD (requêtes de la base et commandes
+      # exécutées), inutiles en exploitation. Valeur vide = aucun débogage
+      # (documentation de wg-easy, variables d'environnement).
+      DEBUG: ""
 
     networks:
       # Réseau dédié WireGuard — requis par l'image pour son adressage interne.
