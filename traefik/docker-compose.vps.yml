@@ -9,12 +9,33 @@
 services:
 
   # ───────────────────────────────────────────────────────────────────────────
+  # SOCKET-PROXY : seul conteneur qui touche au socket Docker.
+  # Lecture seule de l'API : conteneurs uniquement (CONTAINERS=1), ce qui suffit
+  # à Traefik pour découvrir les services. Toute écriture est refusée (POST=0 par
+  # défaut). Réseau interne : aucune route vers Internet ni vers le réseau proxy.
+  # ───────────────────────────────────────────────────────────────────────────
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: socket-proxy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CONTAINERS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+
+  # ───────────────────────────────────────────────────────────────────────────
   # TRAEFIK : Point d'entrée unique HTTP/HTTPS du VPS
   # ───────────────────────────────────────────────────────────────────────────
   traefik:
     image: traefik:v3.7.16@sha256:c8a121e4bb1347e8fd52657fab12f2cb70b68f8a018895e2068f92c9e519b9c2
     container_name: traefik
     restart: unless-stopped
+    depends_on:
+      - socket-proxy
 
     dns:
       - 1.1.1.1   # Cloudflare — résolution DNS depuis le container (requis pour ACME)
@@ -26,13 +47,14 @@ services:
       - "25565:25565" # TCP → Minecraft Java Edition (passthrough)
 
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro       # API Docker — découverte automatique des services
+      # Plus de socket Docker monté : l'API est lue via socket-proxy (traefik.vps.yml)
       - ./traefik.vps.yml:/etc/traefik/traefik.yml:ro      # Config statique VPS — requiert restart si modifiée
       - ./dynamic.vps.yml:/etc/traefik/dynamic.yml:ro      # Config dynamique VPS — rechargée à chaud
       - ./acme.vps.json:/acme.json                         # Certificats Let's Encrypt VPS (chmod 600, gitignored)
 
     networks:
       - proxy
+      - socket-proxy
 
     labels:
       # Le dashboard Traefik n'est pas exposé publiquement sur le VPS
@@ -45,3 +67,13 @@ networks:
   proxy:
     name: proxy
     driver: bridge
+  # socket-proxy : interne, réservé à la lecture de l'API Docker. Sous-réseau fixé
+  # (les réseaux sont créés en parallèle : sans plage explicite, Docker pourrait
+  # lui attribuer celle de proxy et la création échouerait).
+  socket-proxy:
+    name: socket-proxy
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.255.0/29
+          gateway: 172.31.255.1

@@ -24,6 +24,9 @@ providers:
     # Seuls les conteneurs avec le label traefik.enable=true sont exposés
     exposedByDefault: false
     network: proxy
+    # API Docker lue via le proxy de socket (conteneurs en lecture seule),
+    # pas via le socket monté dans Traefik
+    endpoint: "tcp://socket-proxy:2375"
 
   file:
     filename: /etc/traefik/dynamic.yml
