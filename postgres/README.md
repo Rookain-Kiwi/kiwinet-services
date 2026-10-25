@@ -46,7 +46,7 @@ Depuis PostgreSQL 15, seul le propriétaire de la base peut créer des objets da
 | Base | Service consommateur | Créée le |
 |---|---|---|
 | `grafana` | Grafana (données internes) | — |
-| `homeassistant` | Home Assistant (historique, recorder) | — |
+| `home-assistant` | Home Assistant (historique, recorder) ; le rôle propriétaire s'appelle `homeassistant` | — |
 | `rookain` | Base par défaut de l'administrateur (aucun service) | — |
 
 ## Notes

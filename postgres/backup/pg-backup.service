@@ -1,0 +1,21 @@
+[Unit]
+Description=Sauvegarde technique de PostgreSQL (un fichier par base, rôles sans mots de passe)
+After=docker.service
+# Tire le montage de Data et refuse de démarrer s'il est absent : jamais d'écriture
+# silencieuse sur le SSD système.
+RequiresMountsFor=/mnt/Data/Backups/Technique/postgresql-backups
+
+[Service]
+Type=oneshot
+Environment=BACKUP_DIR=/mnt/Data/Backups/Technique/postgresql-backups
+Environment=MOUNT_POINT=/mnt/Data
+Environment=KEEP=7
+TimeoutStartSec=1h
+# Lancé par bash : le script n'a pas besoin de droit d'exécution et /mnt/Data est en noexec.
+ExecStart=/usr/bin/bash /opt/kiwinet-services/postgres/backup/pg-backup.sh
+# Restrictions : lecture seule partout, sauf le dossier des sauvegardes et le verrou.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/mnt/Data/Backups/Technique/postgresql-backups /run/lock

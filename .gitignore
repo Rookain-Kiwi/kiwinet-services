@@ -27,6 +27,10 @@ home-assistant/mosquitto/config/*
 postgres/.env
 pgadmin/.env
 
+# ── Pi-hole ───────────────────────────────────────────────────────────────────
+# Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
+pi-hole/monitoring/push-url.conf
+
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp

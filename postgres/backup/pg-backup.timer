@@ -1,0 +1,12 @@
+[Unit]
+Description=Sauvegarde quotidienne de PostgreSQL, chaque nuit, rattrapée au démarrage si elle a été manquée
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+AccuracySec=1min
+# Si le serveur était éteint à l'heure prévue, la sauvegarde part au démarrage suivant
+# (le script attend alors que le conteneur PostgreSQL soit prêt).
+Persistent=true
+
+[Install]
+WantedBy=timers.target
