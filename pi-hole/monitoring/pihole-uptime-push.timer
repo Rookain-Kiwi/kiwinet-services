@@ -1,10 +1,13 @@
 [Unit]
-Description=Déclenche le test de résolution Pi-hole / push Uptime Kuma toutes les 2 minutes
+Description=Déclenche le test de résolution Pi-hole / push Uptime Kuma toutes les 60 secondes (deux fois plus souvent que la fenêtre de vérification de 120s côté Kuma, pour ne jamais être pris de court)
 
 [Timer]
-OnBootSec=1min
-OnUnitActiveSec=2min
-AccuracySec=5s
+# Horloge fixe plutôt que OnUnitActiveSec : évite la dérive progressive
+# (OnUnitActiveSec repart du moment où le service se termine, donc la durée
+# d'exécution s'additionne à chaque cycle).
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=true
 
 [Install]
 WantedBy=timers.target
