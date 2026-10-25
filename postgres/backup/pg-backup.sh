@@ -3,7 +3,8 @@
 #
 # Un jeu de sauvegarde = un dossier daté contenant :
 #   - un fichier pg_dump au format personnalisé (-Fc) par base ;
-#   - roles.sql : rôles de l'instance, sans mots de passe (--no-role-passwords).
+#   - roles.sql : rôles de l'instance, sans mots de passe (--no-role-passwords) ;
+#   - SHA256SUMS : sommes de contrôle des fichiers du jeu (sha256sum -c pour vérifier).
 #
 # Variables obligatoires, définies par l'unité systemd et jamais dans ce fichier :
 #   BACKUP_DIR   dossier de destination, il doit déjà exister (jamais créé ici)
@@ -87,18 +88,26 @@ for db in "${DBS[@]}"; do
   log "dump : $db"
   in_pg pg_dump -Fc -d "$db" > "$f"
   [[ -s "$f" ]] || die "fichier vide pour la base $db"
-  # Lecture complète de l'archive (sans base cible, pg_restore écrit le script SQL
-  # sur la sortie standard) : détecte une archive tronquée ou corrompue.
-  docker exec -i "$CONTAINER" pg_restore < "$f" > /dev/null \
+  # Lecture complète de l'archive, sortie écartée (PostgreSQL 16 exige -d ou -f) :
+  # détecte une corruption ou une troncature au milieu du fichier (mesuré). Une coupure
+  # de quelques centaines d'octets en toute fin n'est pas détectée : le code de sortie
+  # de pg_dump (set -e) et le test de restauration complètent ce contrôle.
+  docker exec -i "$CONTAINER" pg_restore -f /dev/null < "$f" \
     || die "archive illisible pour la base $db"
-  n="$(docker exec -i "$CONTAINER" pg_restore --list < "$f" | grep -vc '^;' || true)"
-  ((n > 0)) || die "sommaire de l'archive vide pour la base $db"
+  # L'en-tête de l'archive doit nommer la base attendue (le sommaire peut être vide : bases
+  # vides comme postgres ou rookain). L'espacement de l'en-tête n'est pas supposé.
+  docker exec -i "$CONTAINER" pg_restore --list < "$f" \
+    | awk -v d="$db" '$1 == ";" && $2 == "dbname:" && $3 == d { ok = 1 } END { exit !ok }' \
+    || die "l'en-tête de l'archive ne correspond pas à la base $db"
 done
 
 # --- Rôles, sans les hachages de mots de passe ----------------------------------
 log "dump : rôles"
 in_pg pg_dumpall --globals-only --no-role-passwords > "$TMP/roles.sql"
 grep -q '^CREATE ROLE ' "$TMP/roles.sql" || die "aucun rôle dans roles.sql"
+
+# --- Sommes de contrôle : permettent de détecter plus tard une altération du jeu ---
+(cd "$TMP" && sha256sum -- ./*.dump roles.sql > SHA256SUMS)
 
 # --- Publication : propriétaire du dossier de destination, puis renommage --------
 chown -R "$(stat -c '%u:%g' "$BACKUP_DIR")" "$TMP"
