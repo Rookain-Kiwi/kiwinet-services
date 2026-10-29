@@ -1,0 +1,97 @@
+###############################################################################
+# gerbera/docker-compose.yml : Gerbera — serveur UPnP en lecture seule
+# Projet  : kiwinet.me
+# Serveur : serveur auto-hébergé x86 (Debian 13)
+# Image   : gerbera/gerbera (officielle), épinglée par empreinte
+# Accès   : réseau local uniquement, aucune route Traefik, jamais exposé à
+#           Internet. Un seul client prévu : l'iPad 4 (iOS 10, VLC → « Réseau
+#           local »), seul autorisé par ufw.
+# Usage   : publie les films et les séries pour VLC. Jellyfin n'est pas touché.
+###############################################################################
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # GERBERA : catalogue UPnP des films et des séries (lecture seule)
+  # ───────────────────────────────────────────────────────────────────────────
+  gerbera:
+    # Tag + empreinte de l'index multi-architecture (amd64 inclus). À mettre à
+    # jour manuellement. Empreinte : en-tête Docker-Content-Digest du manifeste
+    #   registry-1.docker.io/v2/gerbera/gerbera/manifests/<tag>
+    # (index OCI). Empreinte de la 3.3.0 (publiée le 20/09/2026) relevée le
+    # 29/10/2026.
+    image: gerbera/gerbera:3.3.0@sha256:5f9803fed9e3b7a4c154acca892f173c806078cd6d97c7828ca661d3577c51a0
+    container_name: gerbera
+    restart: unless-stopped
+    # Même identifiant que les autres services du serveur : doit pouvoir lire
+    # les médias et écrire dans le volume de configuration.
+    user: "1000:1000"
+    # tini : le script d'entrée de l'image (qui le lançait) est contourné.
+    init: true
+
+    # network_mode: host — requis : la découverte UPnP (SSDP) passe par du
+    # multicast, impossible en réseau bridge (doc officielle de l'image).
+    # Conséquence : pas de filtrage DOCKER-USER, seul ufw protège ce service
+    # (voir README). Gerbera ne se lie qu'à l'adresse HOST_BIND_IP.
+    network_mode: host
+
+    # Le script d'entrée de l'image démarre en root, utilise sudo (l'utilisateur
+    # de l'image a un sudo sans mot de passe) et change des droits : incompatible
+    # avec user + no-new-privileges. On lance donc Gerbera directement, avec sa
+    # configuration fournie et un volume appartenant à 1000:1000.
+    # "exec" : Gerbera reçoit les signaux d'arrêt. Port >= 49152 exigé par Gerbera.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - exec gerbera --ip "$${HOST_BIND_IP}" --port 49494 --config /etc/gerbera/config.xml
+    command: []
+    environment:
+      HOST_BIND_IP: "${HOST_BIND_IP:?définir HOST_BIND_IP dans .env (voir env.example)}"
+      # Gerbera range un signet dans ~/.config/gerbera : on l'envoie dans le volume.
+      HOME: "/config"
+      TZ: "Europe/Paris"
+
+    # Durcissement — à valider au démarrage réel (journaux, test VLC).
+    # En cas d'échec, retirer d'abord read_only, puis cap_drop.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Rotation des journaux : le pilote par défaut n'en fait aucune.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    volumes:
+      # Configuration générique du dépôt, en lecture seule (aucun secret).
+      - ./config.xml:/etc/gerbera/config.xml:ro
+      # Base SQLite et signet : reconstruits par rescan, aucune sauvegarde.
+      # Volume nommé : propriétaire à poser une fois (voir README).
+      - gerbera-config:/config
+      # Médias : disque USB local, chaque répertoire monté séparément en
+      # lecture seule (mêmes dossiers que Jellyfin, périmètre films et séries
+      # uniquement). Si le disque n'est pas monté, le conteneur refuse de
+      # démarrer au lieu d'écrire sur le SSD.
+      - type: bind
+        source: /mnt/Libraries/Movies
+        target: /data/movies
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "/mnt/Libraries/TV Shows"
+        target: /data/tvshows
+        read_only: true
+        bind:
+          create_host_path: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# gerbera-config : base SQLite (reconstructible) et signet
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  gerbera-config:

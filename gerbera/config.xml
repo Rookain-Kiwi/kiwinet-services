@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2" xmlns="http://gerbera.io/config/2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://gerbera.io/config/2 http://gerbera.io/config/2.xsd">
+  <server>
+    <!-- Interface web désactivée : elle contient un navigateur de fichiers du serveur -->
+    <ui enabled="no"/>
+    <name>Mediatheque</name>
+    <udn>uuid:33921d66-7ba1-4315-8170-213e49da4309</udn>
+    <home>/config</home>
+    <webroot>/usr/local/share/gerbera/web</webroot>
+    <!-- Adresse d'écoute et port : passés en ligne de commande par le compose -->
+    <storage>
+      <sqlite3 enabled="yes">
+        <database-file>gerbera.db</database-file>
+      </sqlite3>
+    </storage>
+  </server>
+  <import hidden-files="no">
+    <autoscan use-inotify="no">
+      <directory location="/data/movies" mode="timed" interval="3600" recursive="yes" hidden-files="no"/>
+      <directory location="/data/tvshows" mode="timed" interval="3600" recursive="yes" hidden-files="no"/>
+    </autoscan>
+  </import>
+  <transcoding enabled="no"/>
+</config>
