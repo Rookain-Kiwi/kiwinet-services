@@ -1,0 +1,16 @@
+[Unit]
+Description=Test de réponse de Gerbera (UPnP) et envoi du résultat à Uptime Kuma
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Compte sans privilège : le script lit seulement ../.env et push-url.conf
+# (600, propriétaire rookain) et appelle curl. Pas besoin de root.
+User=rookain
+# bash explicite : ne dépend pas du bit exécutable du fichier dans le dépôt.
+ExecStart=/bin/bash /opt/kiwinet-services/gerbera/monitoring/uptime-kuma-push.sh
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes

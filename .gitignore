@@ -31,6 +31,10 @@ pgadmin/.env
 # Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
 pi-hole/monitoring/push-url.conf
 
+# ── Gerbera ───────────────────────────────────────────────────────────────────
+# Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
+gerbera/monitoring/push-url.conf
+
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp
