@@ -3,7 +3,7 @@
   <server>
     <!-- Interface web désactivée : elle contient un navigateur de fichiers du serveur -->
     <ui enabled="no"/>
-    <name>Mediatheque</name>
+    <name>Kiwinet</name>
     <udn>uuid:33921d66-7ba1-4315-8170-213e49da4309</udn>
     <home>/config</home>
     <webroot>/usr/local/share/gerbera/web</webroot>
