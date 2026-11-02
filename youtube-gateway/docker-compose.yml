@@ -1,0 +1,48 @@
+# =============================================================================
+# youtube-gateway : sert des lives YouTube en AAC, a la demande, a Music Assistant.
+# Remplace youtube-relay + icecast. Music Assistant (reseau hote) lit
+#   http://127.0.0.1:8100/<nom>
+# ffmpeg ne tourne que pendant l'ecoute. Les radios sont dans config/radios.txt.
+# =============================================================================
+# - Aucun secret. Port publie sur la boucle locale seulement, jamais sur le reseau.
+# - Pas de reseau declare : Compose cree un reseau dedie, dont le DNS interne repond
+#   vite. Le reseau Docker par defaut a fait attendre 38 s l'extraction lors des
+#   essais : ne jamais lancer un test sans --network sur ce serveur.
+# - config/radios.txt : monte en lecture seule par DOSSIER (et non par fichier, car
+#   un git pull remplace le fichier), relu automatiquement : aucun redemarrage.
+#   La procedure d'ajout et de retrait d'une radio est decrite dans ce fichier.
+# - Si server.py ou le Dockerfile changent : changer le tag de l'image ci-dessous,
+#   puis sudo docker compose build && sudo docker compose up -d
+# - MAX_STREAMS : ecoutes simultanees au plus. Chaque ecoute telecharge environ
+#   1,5 Mbit/s et coute environ 90 Mio de memoire (relevé sur le serveur).
+# =============================================================================
+services:
+  youtube-gateway:
+    build:
+      context: .
+    image: kiwinet/youtube-gateway:2026.11.02
+    container_name: youtube-gateway
+    restart: unless-stopped
+    # Durcissement : systeme de fichiers en lecture seule, aucun privilege.
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1001,gid=1001,mode=0700,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 128
+    environment:
+      BIND: 0.0.0.0        # dans le conteneur seulement : l'acces reste limite par "ports"
+      PORT: "8100"
+      MAX_STREAMS: "3"
+    ports:
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - ./config:/config:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
