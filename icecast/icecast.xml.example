@@ -1,0 +1,47 @@
+<!-- Modèle de configuration d'Icecast. Copie réelle avec les mots de passe :
+     hors dépôt, dans le dossier de secrets du serveur, jamais dans Git.
+     Générer chaque mot de passe : openssl rand -hex 24 -->
+<icecast>
+    <location>Home</location>
+    <admin>admin@localhost</admin>
+    <limits>
+        <clients>5</clients>
+        <sources>4</sources>
+        <queue-size>524288</queue-size>
+        <client-timeout>30</client-timeout>
+        <header-timeout>15</header-timeout>
+        <source-timeout>10</source-timeout>
+        <burst-on-connect>1</burst-on-connect>
+        <!-- Réserve envoyée à chaque nouvel auditeur : environ 16 s d'AAC.
+             Le flux YouTube arrive par lots de 5 s, 65535 (valeur par défaut,
+             environ 4 s) provoquait des micro-coupures. Doit rester sous queue-size. -->
+        <burst-size>262144</burst-size>
+    </limits>
+    <authentication>
+        <source-password>CHANGE_ME_SOURCE</source-password>
+        <relay-password>CHANGE_ME_RELAY</relay-password>
+        <admin-user>radioadmin</admin-user>
+        <admin-password>CHANGE_ME_ADMIN</admin-password>
+    </authentication>
+    <hostname>localhost</hostname>
+    <listen-socket>
+        <port>8000</port>
+    </listen-socket>
+    <fileserve>1</fileserve>
+    <paths>
+        <basedir>/usr/share/icecast</basedir>
+        <logdir>/var/log/icecast</logdir>
+        <webroot>/usr/share/icecast/web</webroot>
+        <adminroot>/usr/share/icecast/admin</adminroot>
+        <alias source="/" destination="/status.xsl"/>
+    </paths>
+    <logging>
+        <accesslog>access.log</accesslog>
+        <errorlog>-</errorlog>
+        <loglevel>3</loglevel>
+        <logsize>10000</logsize>
+    </logging>
+    <security>
+        <chroot>0</chroot>
+    </security>
+</icecast>
