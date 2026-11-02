@@ -41,6 +41,7 @@ Un lecteur qui interroge simplement la radio (requête HEAD) ne déclenche aucun
 | `server.py` | Serveur HTTP en bibliothèque standard de Python (aucune dépendance) |
 | `docker-compose.yml` | Service durci, port publié sur la boucle locale seulement |
 | `config/radios.txt` | Liste des radios, montée en lecture seule **par dossier** (un `git pull` remplace le fichier : un montage de fichier unique garderait l'ancienne copie) |
+| `monitoring/` | Sonde de supervision pour Uptime Kuma : script, unité et minuteur systemd, modèle du fichier d'adresse de push |
 
 ## Réglages (variables d'environnement)
 
@@ -87,6 +88,31 @@ de la base : `sudo docker pull debian:stable-slim`, puis
 un an de correctifs mensuels puis l'arrêt de son développement (le projet reste open source).
 yt-dlp accepte d'autres moteurs JavaScript (Node, QuickJS, Bun).
 
+## Supervision
+
+Un moniteur push d'Uptime Kuma (sur le VPS) vérifie que la passerelle répond.
+
+- `monitoring/uptime-kuma-push.sh` appelle la route `/healthz` depuis le serveur et pousse le résultat.
+  En cas d'échec il n'envoie rien : jamais de « down » explicite, l'absence de signal laisse Kuma appliquer ses tentatives.
+- `youtube-gateway-uptime-push.timer` le déclenche chaque minute, sur horloge fixe ;
+  `youtube-gateway-uptime-push.service` le lance sous le compte d'administration, durci, sans root.
+- L'adresse de push est un secret : `monitoring/push-url.conf` (modèle : `push-url.conf.example`), droits 600,
+  ignoré par Git. **Avant de le créer, vérifier avec `git check-ignore -v monitoring/push-url.conf`** : les règles
+  du `.gitignore` sont écrites dossier par dossier.
+- Installation, en copies appartenant à root (pas de liens vers le dépôt, qui est modifiable par le compte d'administration) :
+
+  ```bash
+  cd monitoring
+  sudo install -m 644 -o root -g root youtube-gateway-uptime-push.service youtube-gateway-uptime-push.timer /etc/systemd/system/
+  sudo systemctl daemon-reload && sudo systemctl enable --now youtube-gateway-uptime-push.timer
+  ```
+
+  Après toute modification de ces fichiers versionnés, les recopier et recharger systemd.
+- Vérifier : `systemctl list-timers youtube-gateway-uptime-push.timer`, puis `sudo journalctl -u youtube-gateway-uptime-push.service`
+  (le compte d'administration ne lit pas le journal système sans sudo). L'état du moniteur se lit dans Kuma : le script est silencieux.
+- Avant de commiter une modification du script : `bash -n monitoring/uptime-kuma-push.sh`.
+- **Limite** : la sonde valide le service et le serveur, pas les lives. Un live mort n'est vu qu'à l'écoute (erreur 502).
+
 ## Diagnostic
 
 | Constat | Cause probable | Que faire |
@@ -97,6 +123,7 @@ yt-dlp accepte d'autres moteurs JavaScript (Node, QuickJS, Bun).
 | `extraction echouee` dans les journaux | Live mort, réseau coupé, ou yt-dlp dépassé | Idem 502 |
 | `flux interrompu` puis la lecture continue | Reprise normale (adresse expirée, coupure réseau) | Rien |
 | `abandon apres N echecs de suite` | La reprise n'a pas abouti | Relancer la lecture ; si ça se répète, vérifier le live et yt-dlp |
+| Moniteur Kuma en panne alors que la passerelle répond | Minuteur arrêté ou adresse de push erronée | `systemctl status youtube-gateway-uptime-push.timer`, puis relancer la sonde à la main (`bash monitoring/uptime-kuma-push.sh`) |
 
 Pour tester sur ce serveur, **toujours donner un réseau Docker explicite** (`--network youtube-gateway_default`).
 Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient plusieurs fois plus longue.
@@ -121,7 +148,7 @@ Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient p
 - **Bande passante** : chaque écoute télécharge environ 1,5 Mbit/s (mesure du 02/11/2026), dont l'essentiel
   est le rechargement de la liste de segments du live ; deux écoutes de la même radio font deux téléchargements.
 - **Radio saisonnière** : quand un live se termine, son identifiant meurt ; la ligne est à remplacer.
-- **Pas de supervision** par Uptime Kuma pour l'instant.
+- **Supervision limitée au service** (voir plus haut) : aucune alerte quand un live meurt.
 
 ## Historique
 
