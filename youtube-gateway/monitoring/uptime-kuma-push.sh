@@ -13,7 +13,7 @@ MODE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PUSH_URL_FILE="${SCRIPT_DIR}/push-url.conf"
 GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:8100}"   # meme port que ../docker-compose.yml
-WITNESS_RADIO="${WITNESS_RADIO:-lofi}"                # radio temoin : doit etre dans ../config/radios.txt
+WITNESS_RADIO="${WITNESS_RADIO:-lofi-hip-hop       # radio temoin : doit etre dans ../config/radios.txt
 MIN_BYTES=100000   # environ 6 s d'audio AAC : un vrai flux, pas une page d'erreur
 
 case "$MODE" in

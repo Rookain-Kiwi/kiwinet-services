@@ -35,6 +35,10 @@ pi-hole/monitoring/push-url.conf
 # Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
 gerbera/monitoring/push-url.conf
 
+# ── YouTube Gateway ───────────────────────────────────────────────────────────
+# Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
+youtube-gateway/monitoring/push-url.conf
+
 # ── Système ───────────────────────────────────────────────────────────────────
 .DS_Store
 *.swp
