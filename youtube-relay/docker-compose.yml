@@ -2,7 +2,7 @@ services:
   youtube-relay:
     build:
       context: .
-    image: kiwinet/youtube-relay:2026.11.02
+    image: kiwinet/youtube-relay:2026.11.02-2
     container_name: youtube-relay
     restart: unless-stopped
     read_only: true
@@ -16,7 +16,8 @@ services:
     pids_limit: 128
     environment:
       STREAM_URL: "https://www.youtube.com/watch?v=0sfDth4lMLc"
-      MOUNT: lofi
+      MOUNT: lofi-aac
+      AUDIO_MODE: copy
     volumes:
       - /etc/kiwinet/secrets/youtube_relay_source_password:/run/secrets/youtube_relay_source_password:ro
     networks:

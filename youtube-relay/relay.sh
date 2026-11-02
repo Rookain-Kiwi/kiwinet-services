@@ -1,5 +1,7 @@
 #!/bin/sh
-# Relais YouTube : live YouTube -> MP3 -> Icecast, avec reconnexion automatique.
+# Relais YouTube : live YouTube -> Icecast, avec reconnexion automatique.
+# AUDIO_MODE=copy : recopie l'audio AAC tel quel (sans reencodage, defaut)
+# AUDIO_MODE=mp3  : reencode en MP3 (BITRATE)
 set -u
 
 : "${STREAM_URL:?STREAM_URL manquant}"
@@ -7,7 +9,14 @@ set -u
 ICECAST_HOST="${ICECAST_HOST:-icecast}"
 ICECAST_PORT="${ICECAST_PORT:-8000}"
 BITRATE="${BITRATE:-128k}"
+AUDIO_MODE="${AUDIO_MODE:-copy}"
 PASS_FILE="${PASS_FILE:-/run/secrets/youtube_relay_source_password}"
+
+case "$AUDIO_MODE" in
+  copy) set -- -c:a copy -content_type audio/aac -f adts ;;
+  mp3)  set -- -c:a libmp3lame -b:a "$BITRATE" -content_type audio/mpeg -f mp3 ;;
+  *)    echo "AUDIO_MODE inconnu : $AUDIO_MODE" >&2; exit 1 ;;
+esac
 
 [ -r "$PASS_FILE" ] || { echo "secret illisible : $PASS_FILE" >&2; exit 1; }
 PASS=$(cat "$PASS_FILE")
@@ -35,11 +44,10 @@ while true; do
     backoff
     continue
   fi
-  echo "diffusion vers /${MOUNT}"
+  echo "diffusion vers /${MOUNT} (mode ${AUDIO_MODE})"
   start=$(date +%s)
   run ffmpeg -nostdin -hide_banner -loglevel warning -rw_timeout 15000000 \
-    -i "$AUDIO_URL" -vn -c:a libmp3lame -b:a "$BITRATE" \
-    -content_type audio/mpeg -f mp3 -password "$PASS" \
+    -i "$AUDIO_URL" -vn "$@" -password "$PASS" \
     "icecast://source@${ICECAST_HOST}:${ICECAST_PORT}/${MOUNT}"
   [ $(( $(date +%s) - start )) -ge 60 ] && delay=10
   echo "flux interrompu"
