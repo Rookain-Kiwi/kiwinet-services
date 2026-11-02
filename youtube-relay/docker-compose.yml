@@ -1,0 +1,33 @@
+services:
+  youtube-relay:
+    build:
+      context: .
+    image: kiwinet/youtube-relay:2026.11.02
+    container_name: youtube-relay
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1001,gid=1001,mode=0700,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 128
+    environment:
+      STREAM_URL: "https://www.youtube.com/watch?v=0sfDth4lMLc"
+      MOUNT: lofi
+    volumes:
+      - /etc/kiwinet/secrets/youtube_relay_source_password:/run/secrets/youtube_relay_source_password:ro
+    networks:
+      - radio
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  radio:
+    external: true
+    name: radio
