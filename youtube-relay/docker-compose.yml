@@ -1,32 +1,100 @@
+# =============================================================================
+# youtube-relay : relais audio d'un live YouTube vers Icecast
+#
+# Une radio = un service (donc un conteneur) dans ce fichier.
+# Chaine : live YouTube -> youtube-relay-<nom> -> Icecast (boucle locale seulement)
+#          -> Music Assistant (radio par URL) -> enceintes.
+# =============================================================================
+#
+# AJOUTER UNE RADIO
+#   1. Verifier l'adresse du live (rien n'est telecharge) :
+#        sudo docker run --rm --read-only --tmpfs /tmp:uid=1001,gid=1001,mode=0700 \
+#          --cap-drop ALL --entrypoint yt-dlp <image du bloc x-relay ci-dessous> \
+#          --ignore-config --no-update --no-cache-dir --no-playlist \
+#          -O "%(title)s | %(channel)s | en direct : %(is_live)s" "ADRESSE"
+#      Attendu : le nom de la radio, sa chaine, et "en direct : True".
+#      (Le titre d'un live se termine par une date : c'est normal.)
+#   2. Copier le bloc modele en bas du fichier, retirer les #, changer les 4 valeurs.
+#   3. Commit, push, puis pull sur le serveur (jamais d'edition sur le serveur).
+#   4. sudo docker compose config -q && sudo docker compose up -d
+#      (ne demarre que le nouveau service, les autres ne bougent pas)
+#   5. Music Assistant > Radio > ajouter http://127.0.0.1:8000/<MOUNT>
+#
+# RETIRER UNE RADIO
+#   1. Supprimer son bloc, commit, push, pull.
+#   2. sudo docker compose up -d --remove-orphans
+#      (--remove-orphans arrete et retire le conteneur dont le bloc a disparu)
+#   3. Retirer l'entree correspondante dans Music Assistant.
+#
+# LIMITES ET PIEGES
+#   - Nom du service, container_name et MOUNT : uniques, en minuscules, sans espace.
+#     MOUNT est le nom de la radio dans Icecast : le changer change l'adresse a
+#     saisir dans Music Assistant.
+#   - Icecast limite le nombre de radios actives en meme temps (sources) et le
+#     nombre d'auditeurs (clients) : voir icecast/icecast.xml.example. La copie
+#     reelle, avec les mots de passe, est hors depot. Pour depasser la limite,
+#     la relever la-bas puis recreer Icecast.
+#   - STREAM_URL doit etre l'adresse de la PAGE du live (watch?v=IDENTIFIANT).
+#     Quand un live se termine, son identifiant meurt : le relais boucle alors sur
+#     "extraction echouee" (attente jusqu'a 5 minutes) sans rien signaler.
+#     Il n'y a pas encore de supervision : retirer ou remplacer le bloc.
+#   - AUDIO_MODE=copy recopie l'AAC d'origine sans reencodage (defaut, meilleure
+#     qualite, charge faible). AUDIO_MODE=mp3 reencode (debit BITRATE, 128k par
+#     defaut). Pour changer de mode, prendre aussi un nouveau MOUNT : Music
+#     Assistant memorise le type de flux de l'ancien.
+#   - Si Dockerfile ou relay.sh changent : changer le tag de l'image ci-dessous,
+#     puis sudo docker compose build && sudo docker compose up -d
+#   - Le mot de passe source d'Icecast est lu dans un fichier de secret hors depot,
+#     partage par toutes les radios. Il ne doit jamais passer par ce fichier.
+# =============================================================================
+
+# Reglages communs a toutes les radios (ancre YAML). Chaque service les reprend
+# avec "<<: *relay" et n'ajoute que ce qui lui est propre.
+x-relay: &relay
+  build:
+    context: .
+  image: kiwinet/youtube-relay:2026.11.02-2
+  restart: unless-stopped
+  # Durcissement : systeme de fichiers en lecture seule, aucun privilege.
+  read_only: true
+  tmpfs:
+    - /tmp:uid=1001,gid=1001,mode=0700,noexec,nosuid,size=128m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  mem_limit: 512m
+  pids_limit: 128
+  volumes:
+    - /etc/kiwinet/secrets/youtube_relay_source_password:/run/secrets/youtube_relay_source_password:ro
+  # Reseau partage avec Icecast (cree par son compose). Aucun port publie.
+  networks:
+    - radio
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
-  youtube-relay:
-    build:
-      context: .
-    image: kiwinet/youtube-relay:2026.11.02-2
-    container_name: youtube-relay
-    restart: unless-stopped
-    read_only: true
-    tmpfs:
-      - /tmp:uid=1001,gid=1001,mode=0700,noexec,nosuid,size=128m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    mem_limit: 512m
-    pids_limit: 128
+  # --- Radio de test (saisonniere), a supprimer ---
+  youtube-relay-lofi:
+    <<: *relay
+    container_name: youtube-relay-lofi
     environment:
       STREAM_URL: "https://www.youtube.com/watch?v=0sfDth4lMLc"
       MOUNT: lofi-aac
       AUDIO_MODE: copy
-    volumes:
-      - /etc/kiwinet/secrets/youtube_relay_source_password:/run/secrets/youtube_relay_source_password:ro
-    networks:
-      - radio
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+
+  # --- Modele pour une nouvelle radio ---
+  # Copier ce bloc, retirer les #, changer NOM (3 fois) et IDENTIFIANT.
+  # youtube-relay-NOM:
+  #   <<: *relay
+  #   container_name: youtube-relay-NOM
+  #   environment:
+  #     STREAM_URL: "https://www.youtube.com/watch?v=IDENTIFIANT"
+  #     MOUNT: NOM-aac
+  #     AUDIO_MODE: copy
 
 networks:
   radio:
