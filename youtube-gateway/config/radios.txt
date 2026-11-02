@@ -1,0 +1,36 @@
+# =============================================================================
+# Radios servies par youtube-gateway. Une radio par ligne :   nom  adresse
+#
+#   nom     : minuscules, chiffres et tirets (40 caracteres au plus).
+#             Il forme l'adresse a saisir dans Music Assistant :
+#             http://127.0.0.1:8100/<nom>
+#   adresse : page du live, au format exact
+#             https://www.youtube.com/watch?v=IDENTIFIANT   (11 caracteres)
+#
+# Ce fichier est relu automatiquement des qu'il change : apres un git pull, il n'y a
+# rien a redemarrer. Une ligne invalide est ignoree et signalee une fois dans les
+# journaux (sudo docker logs youtube-gateway). Un # commence un commentaire.
+#
+# AJOUTER UNE RADIO
+#   1. Verifier le live (rien n'est telecharge) :
+#        sudo docker run --rm --read-only --tmpfs /tmp:uid=1001,gid=1001,mode=0700 \
+#          --network youtube-gateway_default --cap-drop ALL --entrypoint yt-dlp \
+#          kiwinet/youtube-gateway:2026.11.02 --ignore-config --no-update \
+#          --no-cache-dir --no-playlist \
+#          -O "%(title)s | %(channel)s | en direct : %(is_live)s" "ADRESSE"
+#      Attendu : le nom de la radio, sa chaine, et "en direct : True".
+#   2. Ajouter une ligne ci-dessous, commit, push, pull sur le serveur.
+#   3. Music Assistant > Radio > ajouter http://127.0.0.1:8100/<nom>
+#
+# RETIRER UNE RADIO
+#   1. Supprimer sa ligne, commit, push, pull.
+#   2. Retirer l'entree dans Music Assistant.
+#
+# Une radio non ecoutee ne coute rien, quel que soit leur nombre. Quand un live se
+# termine, son identifiant meurt : l'ecoute echoue alors tout de suite (erreur 502
+# dans Music Assistant) : remplacer la ligne.
+# Pour voir la liste servie : curl http://127.0.0.1:8100/
+# =============================================================================
+
+lofi       https://www.youtube.com/watch?v=rFZHOHl-L8A
+lofi-test  https://www.youtube.com/watch?v=0sfDth4lMLc   # radio de test (saisonniere), a supprimer
