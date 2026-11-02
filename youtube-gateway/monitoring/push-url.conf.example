@@ -1,5 +1,4 @@
-# Adresses de push des deux moniteurs Uptime Kuma de youtube-gateway (secrets).
-# Copier ce fichier en push-url.conf (droits 600, ignoré par Git) et remplacer les jetons.
+# Adresse de push du moniteur Uptime Kuma de youtube-gateway (secret).
+# Copier ce fichier en push-url.conf (droits 600, ignoré par Git) et remplacer le jeton.
 # Le script ignore les paramètres éventuels après « ? ».
 SERVICE_URL=https://status.kiwinet.me/api/push/REMPLACE_PAR_LE_JETON_DU_MONITEUR_SERVICE
-FLUX_URL=https://status.kiwinet.me/api/push/REMPLACE_PAR_LE_JETON_DU_MONITEUR_FLUX
