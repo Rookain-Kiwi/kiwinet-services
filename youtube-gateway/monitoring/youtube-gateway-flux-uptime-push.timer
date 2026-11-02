@@ -1,0 +1,10 @@
+[Unit]
+Description=Déclenche l'écoute réelle de la radio témoin youtube-gateway / push Uptime Kuma toutes les 30 minutes (deux fois plus souvent que la fenêtre de vérification d'une heure côté Kuma)
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Déclenche la sonde de service youtube-gateway / push Uptime Kuma toutes les 60 secondes (deux fois plus souvent que la fenêtre de vérification de 120 s côté Kuma)
+
+[Timer]
+# Horloge fixe plutôt que OnUnitActiveSec : évite la dérive progressive.
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
