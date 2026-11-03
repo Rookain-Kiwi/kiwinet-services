@@ -1,0 +1,11 @@
+[Unit]
+Description=Rangement des photos du Pixel à 04:00 (Round Sync envoie à 03:00, Proton Drive passe à 04:30)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+AccuracySec=1s
+# Si le serveur était éteint à 04:00, rattrapage au démarrage (sans risque : idempotent).
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=Rangement par mois des photos et vidéos déposées à la racine de Photos
+# Refuse de démarrer si Libraries n'est pas monté.
+RequiresMountsFor=/mnt/Libraries/Photos
+
+[Service]
+Type=oneshot
+# Compte sans privilège, jamais root. Le script est lu depuis le dépôt, jamais depuis
+# Photos (que le WebDAV peut écrire).
+User=rookain
+ExecStart=/bin/bash /opt/kiwinet-services/webdav/photos-sort/photos-sort.sh
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/mnt/Libraries/Photos
