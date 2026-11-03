@@ -7,6 +7,8 @@
 # Usage   : Seedvault (trois profils du Pixel 10a : public, private,
 #           professional), Round Sync et Joplin. Un compte unique et un
 #           sous-dossier par usage sous /data.
+#           Photos du Pixel : /data/photos = dossier Photos de Libraries,
+#           en lecture-écriture (exception assumée, décision du 03/11/2026).
 ###############################################################################
 services:
   # ───────────────────────────────────────────────────────────────────────────
@@ -64,6 +66,14 @@ services:
       - type: bind
         source: /mnt/Data/Backups/Technique/grapheneos-backups
         target: /data
+        bind:
+          create_host_path: false
+      # Photos du Pixel, en lecture-écriture (décision du 03/11/2026). Seul ce
+      # dossier de Libraries est monté, jamais le disque entier. Le point de
+      # montage « photos » doit exister, vide, dans le dossier servi ci-dessus.
+      - type: bind
+        source: /mnt/Libraries/Photos
+        target: /data/photos
         bind:
           create_host_path: false
 
