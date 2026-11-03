@@ -51,6 +51,9 @@ entryPoints:
   # Port 443 : HTTPS, point d'entrée principal
   websecure:
     address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: 600s
 
   # Port 8082 : métriques Prometheus. Lié à l'adresse fixe du réseau interne
   # traefik-metrics (docker-compose.yml) : joignable par Prometheus seulement, ni
