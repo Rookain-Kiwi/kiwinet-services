@@ -53,9 +53,14 @@ Une ligne de `config/radios.txt` avec une adresse `https://www.youtube.com/playl
   téléchargement démarre dès qu'il reste `PRESTART_SECONDS` d'audio à envoyer.
 - Le lecteur voit une radio infinie : pas de titre, pas de « suivant ». Si les éléments de la playlist sont des
   albums d'une heure, le mélange se fait album par album ; pour un mélange morceau par morceau, une vidéo par morceau.
-- **Démarrage à froid** (liste, extraction et ouverture de la première piste, chacune de l'ordre de 2 à 5 s) :
-  il peut s'écouler une dizaine de secondes avant le premier son. Si le lecteur ne les attend pas, mettre
+- **Démarrage** : à froid (liste, extraction et ouverture de la première piste, chacune de l'ordre de 2 à 5 s),
+  environ 9 s avant le premier octet, mesuré hors Music Assistant ; avec les caches chauds (infos gardées 4 h,
+  liste 1 h), environ 1 s. Depuis Music Assistant, le démarrage a été jugé rapide (1 à 3 s une fois l'enceinte
+  réveillée, mesure du 04/11/2026, caches chauds). Si le lecteur n'attend pas un démarrage à froid, mettre
   `INTRO_SILENCE` (par exemple `10`) : la passerelle envoie aussitôt autant de secondes de silence.
+- **Débit** : Music Assistant lit d'abord une réserve en rafale (de l'ordre de 15 Mo, soit environ un quart
+  d'heure d'audio, à 1 ou 2 Mo/s pendant quelques secondes), puis cesse de lire jusqu'à en avoir besoin.
+  Arrêter la lecture ferme le flux et tous les processus (vérifié le 04/11/2026).
 
 ## Fichiers
 
@@ -181,15 +186,18 @@ Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient p
 
 ## Limites connues
 
-- **Renouvellement de l'adresse en écoute très longue** : l'adresse d'un flux est valable environ 6 h.
-  La reprise de ffmpeg en cours d'écoute est testée par simulation, pas encore observée en conditions réelles.
+- **Renouvellement de l'adresse en écoute très longue** : l'adresse d'un flux est valable environ 6 h, comptées
+  depuis son extraction (et non depuis le début de l'écoute : une adresse gardée en mémoire jusqu'à 4 h peut
+  expirer moins de 6 h après le début). Vérifié en conditions réelles le 04/11/2026 : une écoute de plus de
+  5 h a franchi l'expiration, le journal montre une ligne `flux interrompu` à l'échéance, sans `abandon`, puis
+  la lecture a continué. Reste non écouté : le trou éventuel pendant la reprise (quelques secondes attendues).
 - **Bande passante** : chaque écoute télécharge environ 1,5 Mbit/s (mesure du 02/11/2026), dont l'essentiel
   est le rechargement de la liste de segments du live ; deux écoutes de la même radio font deux téléchargements.
 - **Radio saisonnière** : quand un live se termine, son identifiant meurt ; la ligne est à remplacer.
 - **Playlists** : pas de titre ni de « suivant » côté lecteur ; une piste n'est lue sans réencodage que si elle
   est en AAC-LC 44,1 kHz stéréo ; entre deux pistes, un petit trou est possible si le lecteur n'a presque rien
-  en réserve ; le démarrage à froid prend une dizaine de secondes (mesures du 03/11/2026 : liste 2 s,
-  extraction 4 à 5 s, ouverture du téléchargement 4 s la première fois, 1 s ensuite).
+  en réserve ; le démarrage à froid, mesuré hors Music Assistant, prend une dizaine de secondes (mesures du
+  03/11/2026 : liste 2 s, extraction 4 à 5 s, ouverture du téléchargement 4 s la première fois, 1 s ensuite).
 - **Supervision limitée au service** (voir plus haut) : aucune alerte quand un live meurt.
 
 ## Historique
