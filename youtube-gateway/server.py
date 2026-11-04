@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""youtube-gateway : sert des lives YouTube en AAC (ADTS), a la demande.
+"""youtube-gateway : sert des lives et des playlists YouTube en AAC (ADTS), a la demande.
 
 Music Assistant (ou tout lecteur) ouvre http://<hote>:<port>/<nom>. A cet instant
-seulement, le serveur retrouve l'adresse du flux (yt-dlp) et lance ffmpeg, qui
-recopie l'audio AAC sans le reencoder. Quand le lecteur se deconnecte, ffmpeg est
-arrete : une radio qui n'est pas ecoutee ne consomme rien.
+seulement, le serveur lance yt-dlp et ffmpeg, qui recopient l'audio AAC sans le
+reencoder. Quand le lecteur se deconnecte, tout est arrete : une radio qui n'est pas
+ecoutee ne consomme rien.
 
-Les radios viennent d'un fichier texte (RADIOS_FILE), relu des qu'il change.
+Deux sortes de radios, dans un fichier texte (RADIOS_FILE), relu des qu'il change :
+  - un live      : https://www.youtube.com/watch?v=<11 caracteres>
+  - une playlist : https://www.youtube.com/playlist?list=<identifiant>
+    lue en boucle et dans un ordre aleatoire (nouveau melange a chaque ecoute et a
+    chaque tour), piste apres piste.
 Aucune adresse n'est jamais lue dans la requete : on ne lance que celles du fichier.
 Sans bibliotheque externe : bibliotheque standard de Python seulement.
 """
 import http.server
+import json
 import logging
 import os
+import random
 import re
 import select
 import signal
@@ -20,6 +26,7 @@ import socket
 import socketserver
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -27,22 +34,36 @@ BIND = os.environ.get("BIND", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8100"))
 RADIOS_FILE = os.environ.get("RADIOS_FILE", "/config/radios.txt")
 MAX_STREAMS = int(os.environ.get("MAX_STREAMS", "3"))      # ecoutes simultanees
-URL_TTL = int(os.environ.get("URL_TTL", "14400"))          # 4 h, sous les ~6 h de validite
-MAX_FAILURES = int(os.environ.get("MAX_FAILURES", "5"))    # echecs de suite avant abandon
+URL_TTL = int(os.environ.get("URL_TTL", "14400"))          # 4 h, sous les ~6 h de validite (lives)
+MAX_FAILURES = int(os.environ.get("MAX_FAILURES", "5"))    # echecs de suite avant abandon (lives)
 EXTRACT_TIMEOUT = int(os.environ.get("EXTRACT_TIMEOUT", "60"))
 FIRST_BYTE_TIMEOUT = int(os.environ.get("FIRST_BYTE_TIMEOUT", "40"))
+PLAYLIST_TTL = int(os.environ.get("PLAYLIST_TTL", "3600"))   # liste des pistes gardee 1 h
+INFO_TTL = int(os.environ.get("INFO_TTL", "14400"))          # infos d'une piste gardees 4 h
+DEAD_TTL = int(os.environ.get("DEAD_TTL", "600"))            # une piste en echec n'est pas reessayee avant 10 min
+TRACK_FAILURES = int(os.environ.get("TRACK_FAILURES", "5"))  # pistes de suite en echec avant abandon
+PRESTART_SECONDS = int(os.environ.get("PRESTART_SECONDS", "12"))  # on prepare la piste suivante quand il reste cette duree d'audio a envoyer
+INTRO_SILENCE = float(os.environ.get("INTRO_SILENCE", "0"))  # secondes de silence envoyees des l'ouverture d'une playlist (0 = aucune)
 GOOD_BYTES = 256 * 1024     # au moins ca recu : la tentative compte comme reussie
 CHUNK = 65536
+TMP_DIR = os.environ.get("TMP_DIR", "/tmp")
+FMT = "bestaudio[ext=m4a]/bestaudio"
 
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
 LIVE_RE = re.compile(r"https://www\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}")
+LIST_RE = re.compile(r"https://www\.youtube\.com/playlist\?list=[A-Za-z0-9_-]{10,64}")
+VID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
 URL_RE = re.compile(r"https?://\S+")
+YTDLP = ["yt-dlp", "--ignore-config", "--no-update", "--no-cache-dir"]
 
 log = logging.getLogger("gateway")
 lock = threading.Lock()
 active = 0
-cache = {}              # nom -> (adresse du flux, heure d'extraction)
-children = set()        # processus ffmpeg en cours, pour l'arret propre
+cache = {}              # live : nom -> (adresse du flux, heure d'extraction)
+playlist_cache = {}     # playlist : adresse -> (identifiants des pistes, heure)
+info_cache = {}         # piste : identifiant -> (infos d'extraction, heure)
+dead_cache = {}         # piste : identifiant -> heure du dernier echec
+children = set()        # processus en cours, pour l'arret propre
 stopping = threading.Event()
 
 
@@ -74,7 +95,8 @@ def load_radios():
 
 
 def parse_radios():
-    """Lit le fichier des radios : une ligne 'nom adresse', # pour les commentaires."""
+    """Lit le fichier des radios : une ligne 'nom adresse', # pour les commentaires.
+    Retourne {nom: (genre, adresse)}, genre valant 'live' ou 'playlist'."""
     radios = {}
     try:
         with open(RADIOS_FILE, encoding="utf-8") as f:
@@ -88,15 +110,24 @@ def parse_radios():
         if not line:
             continue
         parts = line.split()
-        if len(parts) != 2 or not NAME_RE.fullmatch(parts[0]) or not LIVE_RE.fullmatch(parts[1]):
+        if len(parts) != 2 or not NAME_RE.fullmatch(parts[0]):
+            log.warning("ligne %d ignoree (format invalide)", n)
+            continue
+        if LIVE_RE.fullmatch(parts[1]):
+            kind = "live"
+        elif LIST_RE.fullmatch(parts[1]):
+            kind = "playlist"
+        else:
             log.warning("ligne %d ignoree (format invalide)", n)
             continue
         if parts[0] in radios:
             log.warning("ligne %d ignoree (nom deja utilise)", n)
             continue
-        radios[parts[0]] = parts[1]
+        radios[parts[0]] = (kind, parts[1])
     return radios
 
+
+# --------------------------------------------------------------------------- lives
 
 def extract(name, page_url, fresh):
     """Adresse du flux audio d'un live. Gardee URL_TTL secondes, sauf si fresh."""
@@ -105,8 +136,7 @@ def extract(name, page_url, fresh):
             hit = cache.get(name)
         if hit and time.time() - hit[1] < URL_TTL:
             return hit[0]
-    cmd = ["yt-dlp", "--ignore-config", "--no-update", "--no-cache-dir", "--no-playlist",
-           "-g", "-f", "bestaudio", "--", page_url]
+    cmd = YTDLP + ["--no-playlist", "-g", "-f", "bestaudio", "--", page_url]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=EXTRACT_TIMEOUT,
                            stdin=subprocess.DEVNULL)
@@ -137,28 +167,216 @@ def start_ffmpeg(stream_url, mid_stream):
     return proc
 
 
-def finish(proc):
-    """Arrete ffmpeg s'il tourne encore, retourne son dernier message d'erreur."""
+def finish(proc, grace=1.0):
+    """Arrete le processus s'il tourne encore (arret poli pendant grace secondes, puis force),
+    retourne son dernier message d'erreur."""
     if proc.poll() is None:
         proc.terminate()
         try:
-            proc.wait(timeout=3)
+            proc.wait(timeout=grace)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
     try:
         err = proc.stderr.read(65536).decode("utf-8", "replace")
-    except OSError:
+    except (OSError, ValueError, AttributeError):
         err = ""
     for pipe in (proc.stdout, proc.stderr):
         try:
-            pipe.close()
+            if pipe is not None:
+                pipe.close()
         except OSError:
             pass
     with lock:
         children.discard(proc)
     return clean(err)
 
+
+# ----------------------------------------------------------------------- playlists
+
+def playlist_ids(name, list_url):
+    """Identifiants des pistes d'une playlist, gardes PLAYLIST_TTL secondes."""
+    with lock:
+        hit = playlist_cache.get(list_url)
+    if hit and time.time() - hit[1] < PLAYLIST_TTL:
+        return hit[0]
+    cmd = YTDLP + ["--flat-playlist", "--print", "%(id)s", "--", list_url]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=EXTRACT_TIMEOUT,
+                           stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        r = None
+    ids = []
+    if r is not None:
+        for line in r.stdout.splitlines():
+            line = line.strip()
+            if VID_RE.fullmatch(line) and line not in ids:
+                ids.append(line)
+    if not ids:
+        log.error("%s : playlist illisible ou vide : %s", name,
+                  "delai depasse" if r is None else clean(r.stderr))
+        return hit[0] if hit else None       # a defaut, la derniere liste connue
+    with lock:
+        playlist_cache[list_url] = (ids, time.time())
+    return ids
+
+
+def mark_dead(vid):
+    with lock:
+        if len(dead_cache) >= 256:
+            dead_cache.clear()
+        dead_cache[vid] = time.time()
+
+
+def track_info(name, vid):
+    """Infos d'extraction d'une piste (adresses du flux comprises), gardees INFO_TTL secondes.
+    Retourne un dict, ou None si la piste est indisponible."""
+    with lock:
+        hit = info_cache.get(vid)
+        failed = dead_cache.get(vid)
+    if hit and time.time() - hit[1] < INFO_TTL:
+        return hit[0]
+    if failed and time.time() - failed < DEAD_TTL:
+        return None                  # deja en echec il y a peu : on ne harcele pas YouTube
+    cmd = YTDLP + ["--no-playlist", "-f", FMT, "-j", "--", "https://www.youtube.com/watch?v=" + vid]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=EXTRACT_TIMEOUT,
+                           stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        log.error("%s : piste %s : extraction trop longue", name, vid)
+        mark_dead(vid)
+        return None
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if r.returncode != 0 or not lines:
+        log.error("%s : piste %s indisponible (code %s) : %s", name, vid, r.returncode, clean(r.stderr))
+        mark_dead(vid)
+        return None
+    try:
+        meta = json.loads(lines[-1])
+    except ValueError:
+        log.error("%s : piste %s : reponse d'extraction illisible", name, vid)
+        mark_dead(vid)
+        return None
+    info = {
+        "json": lines[-1],
+        "ext": meta.get("ext"),
+        "acodec": str(meta.get("acodec") or ""),
+        "asr": meta.get("asr"),
+        "channels": meta.get("audio_channels"),
+        "abr": meta.get("abr"),
+        "duration": meta.get("duration"),
+    }
+    with lock:
+        if len(info_cache) >= 16:                      # quelques entrees suffisent
+            info_cache.pop(min(info_cache, key=lambda k: info_cache[k][1]), None)
+        info_cache[vid] = (info, time.time())
+    return info
+
+
+_silence = {}
+
+
+def silence_bytes(seconds):
+    """Quelques secondes de silence en AAC-LC 44,1 kHz stereo (memes parametres que les pistes).
+    Envoyees des l'ouverture, elles laissent au lecteur le temps d'attendre la premiere piste."""
+    key = round(seconds, 1)
+    with lock:
+        data = _silence.get(key)
+    if data is None:
+        cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+               "anullsrc=r=44100:cl=stereo", "-t", str(seconds), "-c:a", "aac", "-b:a", "128k",
+               "-ar", "44100", "-ac", "2", "-f", "adts", "pipe:1"]
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=30, stdin=subprocess.DEVNULL)
+            data = r.stdout if r.returncode == 0 else b""
+        except (subprocess.TimeoutExpired, OSError):
+            data = b""
+        if not data:
+            log.warning("silence d'ouverture impossible a produire")
+        with lock:
+            _silence[key] = data
+    return data
+
+
+def can_copy(info):
+    """Recopie sans reencodage seulement pour de l'AAC-LC 44,1 kHz stereo : toutes les
+    pistes enchainees gardent ainsi les memes parametres, que le lecteur lit sans accroc."""
+    return (info["ext"] == "m4a" and info["acodec"].startswith("mp4a.40.2")
+            and info["asr"] == 44100 and info["channels"] in (None, 2))
+
+
+class Track:
+    """Une piste : yt-dlp lit le fichier (a partir des infos deja extraites), ffmpeg sort de l'ADTS."""
+
+    def __init__(self, vid, info):
+        self.vid = vid
+        self.copy = can_copy(info)
+        rate = info["abr"] if (self.copy and info["abr"]) else 128      # kbit/s
+        # Octets envoyes a partir desquels la piste suivante est preparee : il reste alors
+        # PRESTART_SECONDS d'audio a envoyer (estimation d'apres la duree et le debit).
+        # Un lecteur qui lit en temps reel a donc le temps de la voir demarrer : pas de trou.
+        self.prestart_at = (max(0, int((info["duration"] - PRESTART_SECONDS) * rate * 125))
+                            if info["duration"] else None)
+        fd, self.path = tempfile.mkstemp(prefix="gw-", suffix=".json", dir=TMP_DIR)
+        with os.fdopen(fd, "w") as f:
+            f.write(info["json"])
+        codec = ["-c:a", "copy"] if self.copy else ["-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"]
+        self.y = subprocess.Popen(YTDLP + ["-q", "--no-warnings", "--load-info-json", self.path,
+                                           "-f", FMT, "-o", "-"],
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.f = subprocess.Popen(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+                                   "-i", "pipe:0", "-vn"] + codec + ["-f", "adts", "pipe:1"],
+                                  stdin=self.y.stdout, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, bufsize=0)
+        self.y.stdout.close()
+        with lock:
+            children.update((self.y, self.f))
+
+    def stop(self):
+        """Arrete tout, supprime le fichier temporaire, retourne le dernier message d'erreur."""
+        # La sortie est jetee : inutile d'attendre un arret poli (ffmpeg, bloque a ecrire dans
+        # un tube que personne ne lit, ne reagit qu'apres plusieurs secondes).
+        err = finish(self.f, 0)
+        yerr = finish(self.y, 0)
+        try:
+            os.unlink(self.path)
+        except OSError:
+            pass
+        return err or yerr
+
+
+class Shuffler:
+    """Ordre aleatoire, sans repetition dans un tour ; nouveau melange a chaque tour,
+    sans jouer deux fois de suite la meme piste."""
+
+    def __init__(self, ids):
+        self.ids = list(ids)
+        self.queue = []
+        self.last = None
+        self.prev_tail = None
+
+    def _refill(self):
+        if not self.queue:
+            q = self.ids[:]
+            random.shuffle(q)
+            last = self.last if self.last is not None else self.prev_tail
+            if len(q) > 1 and q[0] == last:
+                q[0], q[-1] = q[-1], q[0]
+            self.queue = q
+
+    def next(self):
+        self._refill()
+        self.last = self.queue.pop(0)
+        self.prev_tail = self.last
+        return self.last
+
+    def peek(self):
+        """Prochaine piste, sans la retirer (prepare le tour suivant si besoin)."""
+        self._refill()
+        return self.queue[0]
+
+
+# ----------------------------------------------------------------------------- HTTP
 
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.0"     # corps sans longueur, jusqu'a la fermeture
@@ -178,12 +396,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def lookup(self):
-        """(nom, adresse du live) si le chemin demande est une radio connue, sinon None."""
+        """(nom, genre, adresse) si le chemin demande est une radio connue, sinon None."""
         name = self.path.split("?", 1)[0].lstrip("/")
         if not NAME_RE.fullmatch(name):
             return None
-        page_url = load_radios().get(name)
-        return (name, page_url) if page_url else None
+        radio = load_radios().get(name)
+        return (name,) + radio if radio else None
 
     def do_HEAD(self):
         # Une simple verification (HEAD) ne declenche jamais d'extraction ni de flux.
@@ -217,13 +435,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             log.warning("%s : refuse, %d ecoutes deja en cours", found[0], MAX_STREAMS)
             return self.reply(503, "trop d'ecoutes en cours")
         try:
-            self.stream(*found)
+            name, kind, url = found
+            if kind == "playlist":
+                self.stream_playlist(name, url)
+            else:
+                self.stream_live(name, url)
         finally:
             with lock:
                 active -= 1
 
-    def relay(self, proc, state):
-        """Copie ffmpeg -> client. Retourne (raison, octets) : client, eof, timeout ou stop."""
+    def relay(self, proc, state, hook=None):
+        """Copie ffmpeg -> client. Retourne (raison, octets) : client, eof, timeout ou stop.
+        hook(octets envoyes) est appele apres chaque envoi."""
         fd = proc.stdout.fileno()
         sock = self.connection
         total = 0
@@ -253,9 +476,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 except OSError:
                     return "client", total
                 total += len(data)
+                if hook is not None:
+                    hook(total)
             elif total == 0 and time.time() - t0 > FIRST_BYTE_TIMEOUT:
                 return "timeout", total
         return "stop", total
+
+    def send_intro(self, state):
+        """Envoie le silence d'ouverture, si demande. Retourne False si le lecteur est deja parti."""
+        data = silence_bytes(INTRO_SILENCE) if INTRO_SILENCE > 0 else b""
+        if not data:
+            return True
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/aac")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            state["sent"] = True
+            self.wfile.write(data)
+            self.wfile.flush()
+        except OSError:
+            return False
+        return True
 
     def client_gone(self):
         """Vrai si le lecteur a ferme la connexion (sans bloquer)."""
@@ -265,7 +507,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except OSError:
             return True
 
-    def stream(self, name, page_url):
+    def stream_live(self, name, page_url):
         state = {"sent": False}
         failures = attempt = 0
         total = 0
@@ -310,6 +552,91 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 pass
         log.info("%s : ecoute terminee (%s) apres %.0f s, %.2f Mo", name, reason,
                  time.time() - t_start, total / 1e6)
+
+    def stream_playlist(self, name, list_url):
+        state = {"sent": False}
+        total = played = failures = 0
+        t_start = time.time()
+        reason = "stop"
+        log.info("%s : ecoute de playlist demarree", name)
+        if not self.send_intro(state):
+            log.info("%s : ecoute de playlist terminee (client) avant la premiere piste", name)
+            return
+        ids = playlist_ids(name, list_url)
+        cur = nxt = None
+        try:
+            if ids:
+                shuffler = Shuffler(ids)
+                log.info("%s : %d piste(s), ordre aleatoire", name, len(ids))
+                while not stopping.is_set():
+                    if self.client_gone():
+                        reason = "client"
+                        break
+                    if cur is None:
+                        cur = self.open_track(name, shuffler)
+                    if cur is None:
+                        failures += 1
+                        reason = "extraction"
+                    else:
+                        # le temps d'ecoute de cette piste sert a preparer l'extraction de la suivante
+                        following = shuffler.peek()
+                        if following:
+                            threading.Thread(target=track_info, args=(name, following), daemon=True).start()
+                        played += 1
+                        log.info("%s : piste %s (%d)", name, cur.vid, played)
+                        nxt = None
+
+                        def hook(sent, cur_track=cur):
+                            nonlocal nxt
+                            if (nxt is None and cur_track.prestart_at is not None
+                                    and sent >= cur_track.prestart_at):
+                                nxt = self.open_track(name, shuffler)
+
+                        reason, n = self.relay(cur.f, state, hook)
+                        total += n
+                        ok = False
+                        if reason == "eof":
+                            try:
+                                ok = cur.f.wait(timeout=10) == 0 and n > 0
+                            except subprocess.TimeoutExpired:
+                                ok = False
+                        err = cur.stop()
+                        if reason in ("client", "stop"):
+                            cur = None
+                            break
+                        if ok:
+                            failures = 0
+                        else:
+                            failures += 1
+                            log.warning("%s : piste %s interrompue (%s) %s", name, cur.vid, reason, err)
+                        cur, nxt = nxt, None
+                    # Au demarrage, on echoue vite ; en cours de route, on saute les pistes en echec.
+                    if failures > (TRACK_FAILURES if state["sent"] else 1):
+                        log.error("%s : abandon apres %d pistes de suite en echec", name, failures)
+                        break
+        finally:
+            for track in (cur, nxt):
+                if track is not None:
+                    track.stop()
+        if not state["sent"]:
+            try:
+                self.reply(502, "playlist indisponible")
+            except OSError:
+                pass
+        log.info("%s : ecoute de playlist terminee (%s) apres %.0f s, %d piste(s), %.2f Mo", name, reason,
+                 time.time() - t_start, played, total / 1e6)
+
+    def open_track(self, name, shuffler):
+        """Demarre la prochaine piste lisible (saute les indisponibles, trois essais au plus)."""
+        for _ in range(3):
+            vid = shuffler.next()
+            info = track_info(name, vid)
+            if info is not None:
+                try:
+                    return Track(vid, info)
+                except OSError as e:
+                    log.error("%s : piste %s : lancement impossible (%s)", name, vid, e.strerror)
+        return None
 
 
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):

@@ -1,6 +1,7 @@
 # youtube-gateway
 
-Passerelle qui sert des lives YouTube (radios lofi) en AAC, **à la demande**, à Music Assistant.
+Passerelle qui sert des lives YouTube (radios lofi) et des playlists (lues en boucle, dans un ordre aléatoire)
+en AAC, **à la demande**, à Music Assistant.
 Une radio qui n'est pas écoutée ne consomme rien : ni bande passante, ni processeur.
 
 ## Principe
@@ -19,7 +20,8 @@ Music Assistant ── ouvre /nom ──►  youtube-gateway ──► yt-dlp : 
 
 ## Utilisation courante
 
-La liste des radios est le fichier `config/radios.txt` (une ligne : `nom adresse-du-live`).
+La liste des radios est le fichier `config/radios.txt` (une ligne : `nom adresse`). L'adresse est celle
+d'un live (`https://www.youtube.com/watch?v=…`) ou d'une playlist (`https://www.youtube.com/playlist?list=…`).
 Il est relu automatiquement dès qu'il change : après un `git pull`, il n'y a rien à redémarrer.
 La procédure complète d'ajout et de retrait, avec la commande de vérification d'un live, est écrite
 dans les commentaires de ce fichier.
@@ -33,12 +35,34 @@ dans les commentaires de ce fichier.
 
 Un lecteur qui interroge simplement la radio (requête HEAD) ne déclenche aucune écoute.
 
+## Playlists
+
+Une ligne de `config/radios.txt` avec une adresse `https://www.youtube.com/playlist?list=…` définit une radio
+« playlist » : la passerelle la lit **en boucle et dans un ordre aléatoire**, piste après piste.
+
+- La playlist doit être **publique ou non répertoriée** (une playlist privée demanderait un compte Google).
+  Une adresse `watch?v=…&list=…` est refusée : prendre l'adresse de la page de la playlist elle-même.
+- Ajouter ou retirer un morceau se fait dans YouTube, sans commit ni redémarrage : la liste est relue au
+  début d'une écoute et gardée environ une heure (`PLAYLIST_TTL`).
+- Ordre : nouveau mélange à chaque écoute et à chaque tour ; aucune piste n'est rejouée dans un même tour,
+  ni deux fois de suite d'un tour à l'autre.
+- Audio : AAC recopié sans réencodage quand la piste est en AAC-LC 44,1 kHz stéréo ; sinon cette piste seule
+  est réencodée en AAC 128 kbit/s, 44,1 kHz stéréo, pour que le flux garde les mêmes paramètres d'un bout à l'autre.
+- Une piste indisponible (supprimée, privée) est sautée, signalée dans les journaux et pas réessayée avant 10 minutes.
+- La piste suivante est préparée pendant la courante : les infos d'extraction sont obtenues d'avance, et son
+  téléchargement démarre dès qu'il reste `PRESTART_SECONDS` d'audio à envoyer.
+- Le lecteur voit une radio infinie : pas de titre, pas de « suivant ». Si les éléments de la playlist sont des
+  albums d'une heure, le mélange se fait album par album ; pour un mélange morceau par morceau, une vidéo par morceau.
+- **Démarrage à froid** (liste, extraction et ouverture de la première piste, chacune de l'ordre de 2 à 5 s) :
+  il peut s'écouler une dizaine de secondes avant le premier son. Si le lecteur ne les attend pas, mettre
+  `INTRO_SILENCE` (par exemple `10`) : la passerelle envoie aussitôt autant de secondes de silence.
+
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
 | `Dockerfile` | Image en deux étapes : télécharge yt-dlp et Deno aux versions épinglées (sommes de contrôle vérifiées), puis assemble Debian, ffmpeg, Python et `server.py` |
-| `server.py` | Serveur HTTP en bibliothèque standard de Python (aucune dépendance) |
+| `server.py` | Serveur HTTP en bibliothèque standard de Python (aucune dépendance) : lives et playlists |
 | `docker-compose.yml` | Service durci, port publié sur la boucle locale seulement |
 | `config/radios.txt` | Liste des radios, montée en lecture seule **par dossier** (un `git pull` remplace le fichier : un montage de fichier unique garderait l'ancienne copie) |
 | `monitoring/` | Sonde de supervision pour Uptime Kuma : script, unité et minuteur systemd, modèle du fichier d'adresse de push |
@@ -55,6 +79,13 @@ Un lecteur qui interroge simplement la radio (requête HEAD) ne déclenche aucun
 | `MAX_FAILURES` | `5` | Échecs de suite tolérés en cours d'écoute avant abandon |
 | `EXTRACT_TIMEOUT` | `60` | Durée maximale d'une extraction par yt-dlp, en secondes |
 | `FIRST_BYTE_TIMEOUT` | `40` | Attente maximale du premier octet de ffmpeg, en secondes |
+| `PLAYLIST_TTL` | `3600` | Secondes pendant lesquelles la liste des pistes d'une playlist est gardée |
+| `INFO_TTL` | `14400` | Secondes pendant lesquelles les infos d'extraction d'une piste sont gardées (4 h, sous la validité des adresses) |
+| `DEAD_TTL` | `600` | Une piste en échec n'est pas réessayée avant ce délai, en secondes |
+| `TRACK_FAILURES` | `5` | Pistes de suite en échec tolérées en cours d'écoute avant abandon (au démarrage : 1) |
+| `PRESTART_SECONDS` | `12` | On prépare la piste suivante quand il reste cette durée d'audio à envoyer |
+| `INTRO_SILENCE` | `0` | Secondes de silence envoyées dès l'ouverture d'une playlist (0 : aucune) |
+| `TMP_DIR` | `/tmp` | Dossier des fichiers temporaires d'extraction (en mémoire, supprimés après usage) |
 
 ## Déploiement et mise à jour
 
@@ -123,6 +154,9 @@ Un moniteur push d'Uptime Kuma (sur le VPS) vérifie que la passerelle répond.
 | `extraction echouee` dans les journaux | Live mort, réseau coupé, ou yt-dlp dépassé | Idem 502 |
 | `flux interrompu` puis la lecture continue | Reprise normale (adresse expirée, coupure réseau) | Rien |
 | `abandon apres N echecs de suite` | La reprise n'a pas abouti | Relancer la lecture ; si ça se répète, vérifier le live et yt-dlp |
+| Erreur 502 « playlist indisponible » | Playlist privée ou supprimée, adresse erronée, ou toutes les pistes en échec | Ouvrir la playlist sans compte dans un navigateur ; vérifier l'adresse ; lire les journaux |
+| `piste XXXXXXXXXXX indisponible` | Vidéo supprimée, privée ou bloquée | La retirer de la playlist (elle est sautée, réessayée après `DEAD_TTL`) |
+| Silence ou attente de plusieurs secondes au début d'une playlist | Démarrage à froid | Normal ; régler `INTRO_SILENCE` si le lecteur abandonne |
 | Moniteur Kuma en panne alors que la passerelle répond | Minuteur arrêté ou adresse de push erronée | `systemctl status youtube-gateway-uptime-push.timer`, puis relancer la sonde à la main (`bash monitoring/uptime-kuma-push.sh`) |
 
 Pour tester sur ce serveur, **toujours donner un réseau Docker explicite** (`--network youtube-gateway_default`).
@@ -133,8 +167,12 @@ Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient p
 - Port publié sur la boucle locale du serveur seulement, jamais exposé par Traefik ni par la box. Il n'a
   pas d'authentification : tout processus local peut demander un flux (et donc consommer de la bande passante).
 - Seules les adresses de `config/radios.txt` sont lancées ; leur format est strict
-  (`https://www.youtube.com/watch?v=` suivi de 11 caractères), les noms aussi. Aucune adresse n'est lue
-  dans une requête, aucun shell n'est utilisé.
+  (`https://www.youtube.com/watch?v=` suivi de 11 caractères, ou `https://www.youtube.com/playlist?list=` suivi
+  de l'identifiant), les noms aussi. Aucune adresse n'est lue dans une requête, aucun shell n'est utilisé.
+  Les identifiants de pistes lus dans une playlist sont revérifiés (11 caractères) avant tout lancement.
+- Pour une piste, les infos d'extraction (qui contiennent des adresses de flux signées, donc l'adresse IP publique)
+  sont écrites dans un fichier temporaire de l'espace en mémoire du conteneur (`TMP_DIR`, accès réservé,
+  supprimé dès la piste terminée). Elles ne sont jamais écrites dans les journaux.
 - Conteneur durci : utilisateur non root, privilèges et capacités retirés, système de fichiers en lecture
   seule, espace temporaire limité sans exécution, mémoire et nombre de processus limités, rotation des journaux.
 - Les journaux ne contiennent aucune adresse de flux (elles embarquent l'adresse IP publique).
@@ -148,6 +186,10 @@ Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient p
 - **Bande passante** : chaque écoute télécharge environ 1,5 Mbit/s (mesure du 02/11/2026), dont l'essentiel
   est le rechargement de la liste de segments du live ; deux écoutes de la même radio font deux téléchargements.
 - **Radio saisonnière** : quand un live se termine, son identifiant meurt ; la ligne est à remplacer.
+- **Playlists** : pas de titre ni de « suivant » côté lecteur ; une piste n'est lue sans réencodage que si elle
+  est en AAC-LC 44,1 kHz stéréo ; entre deux pistes, un petit trou est possible si le lecteur n'a presque rien
+  en réserve ; le démarrage à froid prend une dizaine de secondes (mesures du 03/11/2026 : liste 2 s,
+  extraction 4 à 5 s, ouverture du téléchargement 4 s la première fois, 1 s ensuite).
 - **Supervision limitée au service** (voir plus haut) : aucune alerte quand un live meurt.
 
 ## Historique
