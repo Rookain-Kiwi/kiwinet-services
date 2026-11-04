@@ -30,6 +30,8 @@ pgadmin/.env
 # ── Pi-hole ───────────────────────────────────────────────────────────────────
 # Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
 pi-hole/monitoring/push-url.conf
+# Donnees d'exécution (hachages de mots de passe, bases de plus de 90 Mo), jamais dans Git
+pi-hole/etc-pihole/
 
 # ── Gerbera ───────────────────────────────────────────────────────────────────
 # Jeton du moniteur push d'Uptime Kuma : secret, ne jamais versionner
