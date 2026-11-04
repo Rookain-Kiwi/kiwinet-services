@@ -22,10 +22,14 @@
 #   2. Ajouter une ligne ci-dessous, commit, push, pull sur le serveur.
 #   3. Music Assistant > Radio > ajouter http://127.0.0.1:8100/<nom>
 #
+# PLAYLIST (lecture en boucle, ordre aleatoire) : meme ligne, avec l'adresse de la playlist
+#   nom  https://www.youtube.com/playlist?list=IDENTIFIANT
+#   La playlist doit etre publique ou non repertoriee. Prendre l'adresse de la PAGE de la
+#   playlist (pas watch?v=...&list=...). Ajouter ou retirer un morceau se fait dans YouTube.
+#
 # RETIRER UNE RADIO
 #   1. Supprimer sa ligne, commit, push, pull.
 #   2. Retirer l'entree dans Music Assistant.
-#
 # Une radio non ecoutee ne coute rien, quel que soit leur nombre. Quand un live se
 # termine, son identifiant meurt : l'ecoute echoue alors tout de suite (erreur 502
 # dans Music Assistant) : remplacer la ligne.
@@ -49,3 +53,7 @@ lofi-jazz       https://www.youtube.com/watch?v=E2vONfzoyRI
 # Azeroth Ambience radios
 
 wow-ambient     https://www.youtube.com/watch?v=fv1QUKI2u-I
+
+# Kiwinet Playlists
+
+dungeon-synth  https://www.youtube.com/playlist?list=PLNXg-SyAx8I0
