@@ -55,8 +55,9 @@ chmod 600 acme.json .htpasswd
 docker compose config --quiet
 docker compose up -d
 
-# Après modification de traefik.yml
-docker compose restart
+# Après modification de traefik.yml : recréer le conteneur (un simple
+# redémarrage ne suffit pas, voir « Points critiques »)
+docker compose up -d --force-recreate --no-deps --pull never traefik
 
 # Après modification de dynamic.yml
 docker restart traefik
@@ -157,6 +158,10 @@ Après modification des réseaux ou des variables de `docker-compose.yml`, appli
 **Ports publiés sur l'adresse LAN** — les ports 80 et 443 sont liés à `HOST_BIND_IP` (pas de `0.0.0.0`, pas d'IPv6). Le démarrage échoue si la variable n'est pas définie.
 
 **Sous-réseaux fixes** — `proxy` (`172.18.0.0/16`), `socket-proxy` (`172.31.255.0/29`) et `traefik-metrics` (`172.31.255.8/29`) sont fixés pour que la création des trois réseaux, faite en parallèle, n'échoue pas par chevauchement. Les routes vers Home Assistant et Music Assistant (`network_mode: host`) visent la passerelle `172.18.0.1`. Le pare-feu de l'hôte (ufw) doit autoriser `172.18.0.0/16` vers les ports `8123` (Home Assistant) et `8095` (Music Assistant).
+
+**`traefik.yml` monté comme fichier unique** — après un `git pull`, le conteneur voit encore l'ancien contenu (constaté le 03/11/2026 sur le serveur : valeur absente dans le conteneur, présente sur le disque) : Git remplace le fichier et le montage garde l'ancien. Un redémarrage ne suffit pas : recréer le conteneur, puis relire la valeur avec `docker exec traefik grep <clé> /etc/traefik/traefik.yml`. Même précaution probable pour `traefik.vps.yml` (non vérifié). Coupure d'une dizaine de secondes de tous les services publics.
+
+**Délai de lecture des requêtes à 600 s** — `entryPoints.websecure.transport.respondingTimeouts.readTimeout` (60 s par défaut, corps compris) est relevé pour que les envois de vidéos du téléphone vers le WebDAV ne soient pas coupés. Réglage global au point d'entrée : il vaut pour tous les services publics et tolère plus longtemps les connexions lentes. Valeur bornée, jamais 0. Effet sur un envoi de plus de 60 s : pas encore vérifié (décision du 03/11/2026).
 
 **Rechargement `dynamic.yml` non fiable** — malgré `watch: true`, toujours redémarrer :
 ```bash
