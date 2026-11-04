@@ -48,6 +48,8 @@ Une ligne de `config/radios.txt` avec une adresse `https://www.youtube.com/playl
   ni deux fois de suite d'un tour à l'autre.
 - Audio : AAC recopié sans réencodage quand la piste est en AAC-LC 44,1 kHz stéréo ; sinon cette piste seule
   est réencodée en AAC 128 kbit/s, 44,1 kHz stéréo, pour que le flux garde les mêmes paramètres d'un bout à l'autre.
+  Le journal dit pour chaque piste lue si elle est recopiée ou réencodée (`recopiee (m4a mp4a.40.2 44100 Hz 2 canaux)`
+  ou `reencodee (webm opus 48000 Hz 2 canaux)`), et la fin d'écoute donne le nombre de pistes réencodées.
 - Une piste indisponible (supprimée, privée) est sautée, signalée dans les journaux et pas réessayée avant 10 minutes.
 - La piste suivante est préparée pendant la courante : les infos d'extraction sont obtenues d'avance, et son
   téléchargement démarre dès qu'il reste `PRESTART_SECONDS` d'audio à envoyer.
@@ -160,6 +162,7 @@ Un moniteur push d'Uptime Kuma (sur le VPS) vérifie que la passerelle répond.
 | `flux interrompu` puis la lecture continue | Reprise normale (adresse expirée, coupure réseau) | Rien |
 | `abandon apres N echecs de suite` | La reprise n'a pas abouti | Relancer la lecture ; si ça se répète, vérifier le live et yt-dlp |
 | Erreur 502 « playlist indisponible » | Playlist privée ou supprimée, adresse erronée, ou toutes les pistes en échec | Ouvrir la playlist sans compte dans un navigateur ; vérifier l'adresse ; lire les journaux |
+| `piste XXXXXXXXXXX (n) reencodee (…)` | La piste n'est pas en AAC-LC 44,1 kHz stéréo (format absent ou différent chez YouTube) | Normal et rare : elle est réencodée en AAC 128 kbit/s. La qualité d'origine ne peut pas être gardée pour cette piste |
 | `piste XXXXXXXXXXX indisponible` | Vidéo supprimée, privée ou bloquée | La retirer de la playlist (elle est sautée, réessayée après `DEAD_TTL`) |
 | Silence ou attente de plusieurs secondes au début d'une playlist | Démarrage à froid | Normal ; régler `INTRO_SILENCE` si le lecteur abandonne |
 | Moniteur Kuma en panne alors que la passerelle répond | Minuteur arrêté ou adresse de push erronée | `systemctl status youtube-gateway-uptime-push.timer`, puis relancer la sonde à la main (`bash monitoring/uptime-kuma-push.sh`) |

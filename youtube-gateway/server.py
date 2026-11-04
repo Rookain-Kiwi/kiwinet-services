@@ -311,6 +311,10 @@ class Track:
     def __init__(self, vid, info):
         self.vid = vid
         self.copy = can_copy(info)
+        # Mode de lecture, pour le journal : recopie sans reencodage, ou reencodage et pourquoi.
+        detail = "%s %s %s Hz %s canaux" % (info["ext"] or "?", info["acodec"] or "?",
+                                            info["asr"] or "?", info["channels"] or "?")
+        self.mode = "recopiee (%s)" % detail if self.copy else "reencodee (%s)" % detail
         rate = info["abr"] if (self.copy and info["abr"]) else 128      # kbit/s
         # Octets envoyes a partir desquels la piste suivante est preparee : il reste alors
         # PRESTART_SECONDS d'audio a envoyer (estimation d'apres la duree et le debit).
@@ -555,7 +559,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def stream_playlist(self, name, list_url):
         state = {"sent": False}
-        total = played = failures = 0
+        total = played = failures = reencoded = 0
         t_start = time.time()
         reason = "stop"
         log.info("%s : ecoute de playlist demarree", name)
@@ -583,7 +587,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         if following:
                             threading.Thread(target=track_info, args=(name, following), daemon=True).start()
                         played += 1
-                        log.info("%s : piste %s (%d)", name, cur.vid, played)
+                        reencoded += 0 if cur.copy else 1
+                        log.info("%s : piste %s (%d) %s", name, cur.vid, played, cur.mode)
                         nxt = None
 
                         def hook(sent, cur_track=cur):
@@ -623,8 +628,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.reply(502, "playlist indisponible")
             except OSError:
                 pass
-        log.info("%s : ecoute de playlist terminee (%s) apres %.0f s, %d piste(s), %.2f Mo", name, reason,
-                 time.time() - t_start, played, total / 1e6)
+        log.info("%s : ecoute de playlist terminee (%s) apres %.0f s, %d piste(s) dont %d reencodee(s), %.2f Mo",
+                 name, reason, time.time() - t_start, played, reencoded, total / 1e6)
 
     def open_track(self, name, shuffler):
         """Demarre la prochaine piste lisible (saute les indisponibles, trois essais au plus)."""
