@@ -1,0 +1,75 @@
+#!/bin/bash
+# Crochet pre-commit de kiwinet-services : refuse un commit qui contiendrait un fichier de plus de
+# 5 Mo, un nom typique de secret ou de donnees d'execution, ou un secret reconnaissable dans son
+# contenu (cle privee, jeton GitHub, adresse de push d'Uptime Kuma).
+#
+# Activation, une fois par copie du depot :   git config core.hooksPath .githooks
+# Audit de tout ce que Git suit deja :        .githooks/pre-commit --all
+# Contournement volontaire, au cas par cas :  git commit --no-verify
+set -u
+MAX_BYTES=$((5 * 1024 * 1024))
+PATTERNS='-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|api/push/[A-Za-z0-9]{24,}|AKIA[0-9A-Z]{16}'
+problems=0
+
+report() {
+  echo "  REFUSE : $1" >&2
+  problems=$((problems + 1))
+}
+
+is_secret_name() {
+  local base="${1##*/}"
+  case "$base" in
+    *.example|*.sample|*.dist) return 1 ;;
+  esac
+  case "$base" in
+    .env|*.env|.htpasswd|htpasswd|acme.json|acme*.json|cli_pw|pihole.toml|push-url.conf) return 0 ;;
+    *.db|*.db-wal|*.db-shm|*.sqlite|*.sqlite3|*.pem|*.key|*.p12|*.pfx|*.kdbx) return 0 ;;
+    id_rsa|id_rsa.*|id_ed25519|id_ed25519.*|id_ecdsa|id_ecdsa.*) return 0 ;;
+  esac
+  return 1
+}
+
+files=()
+audit=0
+if [ "${1:-}" = "--all" ]; then
+  audit=1
+  while IFS= read -r -d '' f; do files+=("$f"); done < <(git ls-files -z)
+  echo "Audit de tous les fichiers suivis par Git (${#files[@]} fichiers)..." >&2
+else
+  while IFS= read -r -d '' f; do files+=("$f"); done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+fi
+
+for f in "${files[@]}"; do
+  [ -n "$f" ] || continue
+  if is_secret_name "$f"; then
+    report "$f : nom typique de secret ou de donnees d'execution"
+    continue
+  fi
+  size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+  if [ "$size" -gt "$MAX_BYTES" ]; then
+    report "$f : $((size / 1048576)) Mo, plus de 5 Mo"
+    continue
+  fi
+  if git show ":$f" 2>/dev/null | grep -I -E -q -- "$PATTERNS"; then
+    report "$f : contenu ressemblant a un secret (cle privee, jeton ou adresse de push)"
+  fi
+done
+
+if [ "$problems" -gt 0 ]; then
+  if [ "$audit" = 1 ]; then
+    {
+      echo
+      echo "Audit : $problems fichier(s) suivi(s) a examiner. Un secret deja commite dans un depot public"
+      echo "est a considerer comme expose : le changer, puis le retirer de l'historique."
+    } >&2
+  else
+    {
+      echo
+      echo "Le commit est refuse ($problems fichier(s)). Retire-les de l'index : git restore --staged <fichier>"
+      echo "et ajoute une regle a .gitignore si ce sont des donnees d'execution."
+      echo "Si c'est voulu : git commit --no-verify (a utiliser avec soin : le depot est public)."
+    } >&2
+  fi
+  exit 1
+fi
+exit 0
