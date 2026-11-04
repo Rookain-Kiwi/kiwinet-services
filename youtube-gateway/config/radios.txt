@@ -34,6 +34,8 @@
 # termine, son identifiant meurt : l'ecoute echoue alors tout de suite (erreur 502
 # dans Music Assistant) : remplacer la ligne.
 # Pour voir la liste servie : curl http://127.0.0.1:8100/
+#
+# Le rechargement automatique après un git pull a été validé en conditions réelles le 04/11/2026.
 # =============================================================================
 
 # Lofi Girl radios
@@ -56,4 +58,5 @@ wow-ambient     https://www.youtube.com/watch?v=fv1QUKI2u-I
 
 # Kiwinet Playlists
 
+kiwi-playlist  https://www.youtube.com/playlist?list=PLWdNXL7g_TPkMZxlEpowdFuP8QTqu4rHo
 dungeon-synth  https://www.youtube.com/playlist?list=PLNXg-SyAx8I0
