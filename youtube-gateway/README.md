@@ -56,10 +56,13 @@ Une ligne de `config/radios.txt` avec une adresse `https://www.youtube.com/playl
 - Le lecteur voit une radio infinie : pas de titre, pas de « suivant ». Si les éléments de la playlist sont des
   albums d'une heure, le mélange se fait album par album ; pour un mélange morceau par morceau, une vidéo par morceau.
 - **Démarrage** : à froid (liste, extraction et ouverture de la première piste, chacune de l'ordre de 2 à 5 s),
-  environ 9 s avant le premier octet, mesuré hors Music Assistant ; avec les caches chauds (infos gardées 4 h,
-  liste 1 h), environ 1 s. Depuis Music Assistant, le démarrage a été jugé rapide (1 à 3 s une fois l'enceinte
-  réveillée, mesure du 04/11/2026, caches chauds). Si le lecteur n'attend pas un démarrage à froid, mettre
-  `INTRO_SILENCE` (par exemple `10`) : la passerelle envoie aussitôt autant de secondes de silence.
+  il s'écoule environ 9 à 10 s avant le premier octet de musique, mesuré hors Music Assistant ; avec les caches
+  chauds (infos gardées 4 h, liste 1 h), environ 1 s. Music Assistant abandonne une écoute qui ne reçoit aucun octet
+  pendant 5 à 6 s (constaté le 04/11/2026 : deux écoutes fermées après 5 et 6 s avec 0 octet). La passerelle lui
+  envoie donc **du silence tant que la première piste n'est pas prête** : après 1,5 s d'attente (`SILENCE_GRACE`),
+  une seconde de silence par seconde, avec deux secondes d'avance, puis la musique prend le relais. Un démarrage à
+  chaud ne produit aucun silence. Le journal consigne `N s de silence envoyes pendant le demarrage`.
+  `SILENCE_KEEPALIVE=0` supprime ce mécanisme.
 - **Débit** : Music Assistant lit d'abord une réserve en rafale (de l'ordre de 15 Mo, soit environ un quart
   d'heure d'audio, à 1 ou 2 Mo/s pendant quelques secondes), puis cesse de lire jusqu'à en avoir besoin.
   Arrêter la lecture ferme le flux et tous les processus (vérifié le 04/11/2026).
@@ -91,7 +94,8 @@ Une ligne de `config/radios.txt` avec une adresse `https://www.youtube.com/playl
 | `DEAD_TTL` | `600` | Une piste en échec n'est pas réessayée avant ce délai, en secondes |
 | `TRACK_FAILURES` | `5` | Pistes de suite en échec tolérées en cours d'écoute avant abandon (au démarrage : 1) |
 | `PRESTART_SECONDS` | `12` | On prépare la piste suivante quand il reste cette durée d'audio à envoyer |
-| `INTRO_SILENCE` | `0` | Secondes de silence envoyées dès l'ouverture d'une playlist (0 : aucune) |
+| `SILENCE_KEEPALIVE` | `1` | Envoie du silence tant que la première piste d'une playlist n'est pas prête (0 : jamais) |
+| `SILENCE_GRACE` | `1.5` | Attente, en secondes, avant d'envoyer le premier silence |
 | `TMP_DIR` | `/tmp` | Dossier des fichiers temporaires d'extraction (en mémoire, supprimés après usage) |
 
 ## Déploiement et mise à jour
@@ -164,7 +168,7 @@ Un moniteur push d'Uptime Kuma (sur le VPS) vérifie que la passerelle répond.
 | Erreur 502 « playlist indisponible » | Playlist privée ou supprimée, adresse erronée, ou toutes les pistes en échec | Ouvrir la playlist sans compte dans un navigateur ; vérifier l'adresse ; lire les journaux |
 | `piste XXXXXXXXXXX (n) reencodee (…)` | La piste n'est pas en AAC-LC 44,1 kHz stéréo (format absent ou différent chez YouTube) | Normal et rare : elle est réencodée en AAC 128 kbit/s. La qualité d'origine ne peut pas être gardée pour cette piste |
 | `piste XXXXXXXXXXX indisponible` | Vidéo supprimée, privée ou bloquée | La retirer de la playlist (elle est sautée, réessayée après `DEAD_TTL`) |
-| Silence ou attente de plusieurs secondes au début d'une playlist | Démarrage à froid | Normal ; régler `INTRO_SILENCE` si le lecteur abandonne |
+| Silence de quelques secondes au début d'une playlist | Démarrage à froid : la passerelle envoie du silence pour que le lecteur ne renonce pas | Normal. Le journal dit combien de secondes (`s de silence envoyes pendant le demarrage`) |
 | Moniteur Kuma en panne alors que la passerelle répond | Minuteur arrêté ou adresse de push erronée | `systemctl status youtube-gateway-uptime-push.timer`, puis relancer la sonde à la main (`bash monitoring/uptime-kuma-push.sh`) |
 
 Pour tester sur ce serveur, **toujours donner un réseau Docker explicite** (`--network youtube-gateway_default`).
@@ -199,8 +203,8 @@ Le réseau Docker par défaut a un DNS très lent ici : l'extraction y devient p
 - **Radio saisonnière** : quand un live se termine, son identifiant meurt ; la ligne est à remplacer.
 - **Playlists** : pas de titre ni de « suivant » côté lecteur ; une piste n'est lue sans réencodage que si elle
   est en AAC-LC 44,1 kHz stéréo ; entre deux pistes, un petit trou est possible si le lecteur n'a presque rien
-  en réserve ; le démarrage à froid, mesuré hors Music Assistant, prend une dizaine de secondes (mesures du
-  03/11/2026 : liste 2 s, extraction 4 à 5 s, ouverture du téléchargement 4 s la première fois, 1 s ensuite).
+  en réserve ; le démarrage à froid, mesuré hors Music Assistant, prend une dizaine de secondes, comblées par du
+  silence (mesures du 03/11/2026 : liste 2 s, extraction 4 à 5 s, ouverture du téléchargement 4 s la première fois, 1 s ensuite).
 - **Supervision limitée au service** (voir plus haut) : aucune alerte quand un live meurt.
 
 ## Historique

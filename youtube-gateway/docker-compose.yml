@@ -18,14 +18,15 @@
 # - MAX_STREAMS : ecoutes simultanees au plus. Un live telecharge environ 1,5 Mbit/s et
 #   coute environ 90 Mio de memoire (releve du 02/11/2026) ; les playlists n'ont pas
 #   encore ete mesurees.
-# - INTRO_SILENCE (playlists) : secondes de silence envoyees des l'ouverture. A regler si
-#   Music Assistant n'attend pas le demarrage a froid (une dizaine de secondes) : voir README.
+# - Silence d'attente (playlists) : a froid, la premiere piste met une dizaine de secondes a
+#   demarrer et Music Assistant abandonne apres 5 a 6 s sans octet : la passerelle lui envoie
+#   donc du silence en attendant. SILENCE_KEEPALIVE=0 le supprime, voir le README.
 # =============================================================================
 services:
   youtube-gateway:
     build:
       context: .
-    image: kiwinet/youtube-gateway:2026.11.04-2
+    image: kiwinet/youtube-gateway:2026.11.04-3
     container_name: youtube-gateway
     restart: unless-stopped
     # Durcissement : systeme de fichiers en lecture seule, aucun privilege.
@@ -42,7 +43,6 @@ services:
       BIND: 0.0.0.0        # dans le conteneur seulement : l'acces reste limite par "ports"
       PORT: "8100"
       MAX_STREAMS: "3"
-      # INTRO_SILENCE: "10"
     ports:
       - "127.0.0.1:8100:8100"
     volumes:

@@ -10,7 +10,8 @@ Deux sortes de radios, dans un fichier texte (RADIOS_FILE), relu des qu'il chang
   - un live      : https://www.youtube.com/watch?v=<11 caracteres>
   - une playlist : https://www.youtube.com/playlist?list=<identifiant>
     lue en boucle et dans un ordre aleatoire (nouveau melange a chaque ecoute et a
-    chaque tour), piste apres piste.
+    chaque tour), piste apres piste. A froid, la preparation de la premiere piste depasse
+    ce que le lecteur attend : du silence lui est envoye pendant ce temps.
 Aucune adresse n'est jamais lue dans la requete : on ne lance que celles du fichier.
 Sans bibliotheque externe : bibliotheque standard de Python seulement.
 """
@@ -43,7 +44,8 @@ INFO_TTL = int(os.environ.get("INFO_TTL", "14400"))          # infos d'une piste
 DEAD_TTL = int(os.environ.get("DEAD_TTL", "600"))            # une piste en echec n'est pas reessayee avant 10 min
 TRACK_FAILURES = int(os.environ.get("TRACK_FAILURES", "5"))  # pistes de suite en echec avant abandon
 PRESTART_SECONDS = int(os.environ.get("PRESTART_SECONDS", "12"))  # on prepare la piste suivante quand il reste cette duree d'audio a envoyer
-INTRO_SILENCE = float(os.environ.get("INTRO_SILENCE", "0"))  # secondes de silence envoyees des l'ouverture d'une playlist (0 = aucune)
+SILENCE_KEEPALIVE = os.environ.get("SILENCE_KEEPALIVE", "1") not in ("0", "", "no", "non")  # silence pendant un demarrage lent (playlists)
+SILENCE_GRACE = float(os.environ.get("SILENCE_GRACE", "1.5"))  # attente (s) avant d'envoyer le premier silence
 GOOD_BYTES = 256 * 1024     # au moins ca recu : la tentative compte comme reussie
 CHUNK = 65536
 TMP_DIR = os.environ.get("TMP_DIR", "/tmp")
@@ -63,6 +65,7 @@ cache = {}              # live : nom -> (adresse du flux, heure d'extraction)
 playlist_cache = {}     # playlist : adresse -> (identifiants des pistes, heure)
 info_cache = {}         # piste : identifiant -> (infos d'extraction, heure)
 dead_cache = {}         # piste : identifiant -> heure du dernier echec
+inflight = {}           # piste : identifiant -> evenement signale quand son extraction en cours se termine
 children = set()        # processus en cours, pour l'arret propre
 stopping = threading.Event()
 
@@ -230,14 +233,34 @@ def mark_dead(vid):
 
 def track_info(name, vid):
     """Infos d'extraction d'une piste (adresses du flux comprises), gardees INFO_TTL secondes.
-    Retourne un dict, ou None si la piste est indisponible."""
+    Retourne un dict, ou None si la piste est indisponible. Une seule extraction a la fois par
+    piste : un second appel attend le resultat du premier au lieu de relancer yt-dlp."""
     with lock:
         hit = info_cache.get(vid)
         failed = dead_cache.get(vid)
-    if hit and time.time() - hit[1] < INFO_TTL:
-        return hit[0]
-    if failed and time.time() - failed < DEAD_TTL:
-        return None                  # deja en echec il y a peu : on ne harcele pas YouTube
+        if hit and time.time() - hit[1] < INFO_TTL:
+            return hit[0]
+        if failed and time.time() - failed < DEAD_TTL:
+            return None              # deja en echec il y a peu : on ne harcele pas YouTube
+        waiting = inflight.get(vid)
+        if waiting is None:
+            inflight[vid] = threading.Event()
+    if waiting is not None:
+        waiting.wait(EXTRACT_TIMEOUT + 10)
+        with lock:
+            hit = info_cache.get(vid)
+        return hit[0] if hit else None
+    try:
+        return extract_info(name, vid)
+    finally:
+        with lock:
+            done = inflight.pop(vid, None)
+        if done is not None:
+            done.set()
+
+
+def extract_info(name, vid):
+    """Extraction proprement dite (yt-dlp), appelee par track_info."""
     cmd = YTDLP + ["--no-playlist", "-f", FMT, "-j", "--", "https://www.youtube.com/watch?v=" + vid]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=EXTRACT_TIMEOUT,
@@ -277,8 +300,8 @@ _silence = {}
 
 
 def silence_bytes(seconds):
-    """Quelques secondes de silence en AAC-LC 44,1 kHz stereo (memes parametres que les pistes).
-    Envoyees des l'ouverture, elles laissent au lecteur le temps d'attendre la premiere piste."""
+    """Quelques secondes de silence en AAC-LC 44,1 kHz stereo (memes parametres que les pistes),
+    envoyees pendant un demarrage lent pour que le lecteur ne renonce pas."""
     key = round(seconds, 1)
     with lock:
         data = _silence.get(key)
@@ -292,7 +315,7 @@ def silence_bytes(seconds):
         except (subprocess.TimeoutExpired, OSError):
             data = b""
         if not data:
-            log.warning("silence d'ouverture impossible a produire")
+            log.warning("silence d'attente impossible a produire")
         with lock:
             _silence[key] = data
     return data
@@ -448,15 +471,55 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with lock:
                 active -= 1
 
-    def relay(self, proc, state, hook=None):
+    def send_data(self, state, data):
+        """Envoie des octets au lecteur (en-tetes au premier envoi). Retourne False s'il est parti."""
+        try:
+            if not state["sent"]:
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/aac")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                state["sent"] = True
+            self.wfile.write(data)
+            self.wfile.flush()
+        except OSError:
+            return False
+        return True
+
+    def keepalive(self, state):
+        """Pendant que la piste n'est pas prete, envoie du silence (une seconde par seconde, avec
+        deux secondes d'avance) : le lecteur, qui abandonne apres quelques secondes sans octet,
+        reste connecte. Rien n'est envoye avant SILENCE_GRACE secondes d'attente : un demarrage a
+        chaud ne produit aucun silence. Retourne False si le lecteur est parti."""
+        if not SILENCE_KEEPALIVE:
+            return True
+        block = silence_bytes(1.0)
+        if not block:
+            return True
+        now = time.time()
+        due = state.get("sil_next")
+        if due is None:
+            if now - state.get("wait_since", now) < SILENCE_GRACE:
+                return True
+            state["sil_next"] = now + 1.0
+            state["sil_blocks"] = state.get("sil_blocks", 0) + 2
+            return self.send_data(state, block * 2)
+        if now >= due:
+            state["sil_next"] = due + 1.0
+            state["sil_blocks"] = state.get("sil_blocks", 0) + 1
+            return self.send_data(state, block)
+        return True
+
+    def relay(self, proc, state, hook=None, keepalive=False):
         """Copie ffmpeg -> client. Retourne (raison, octets) : client, eof, timeout ou stop.
-        hook(octets envoyes) est appele apres chaque envoi."""
+        hook(octets envoyes) est appele apres chaque envoi. Avec keepalive, du silence est envoye
+        tant que le premier octet de la piste n'est pas la."""
         fd = proc.stdout.fileno()
         sock = self.connection
         total = 0
         t0 = time.time()
         while not stopping.is_set():
-            ready, _, _ = select.select([fd, sock], [], [], 1.0)
+            ready, _, _ = select.select([fd, sock], [], [], 0.5 if keepalive else 1.0)
             if sock in ready:
                 try:
                     if sock.recv(1, socket.MSG_PEEK) == b"":
@@ -468,40 +531,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data = os.read(fd, CHUNK)
                 if not data:
                     return "eof", total
-                try:
-                    if not state["sent"]:
-                        self.send_response(200)
-                        self.send_header("Content-Type", "audio/aac")
-                        self.send_header("Cache-Control", "no-store")
-                        self.end_headers()
-                        state["sent"] = True
-                    self.wfile.write(data)
-                    self.wfile.flush()
-                except OSError:
+                if not self.send_data(state, data):
                     return "client", total
+                if not state.get("music"):
+                    state["music"] = True
+                    if state.get("sil_blocks"):
+                        log.info("%s : %d s de silence envoyes pendant le demarrage",
+                                 state.get("name", "?"), state["sil_blocks"])
+                state["sil_next"] = None
+                state["wait_since"] = time.time()
                 total += len(data)
                 if hook is not None:
                     hook(total)
-            elif total == 0 and time.time() - t0 > FIRST_BYTE_TIMEOUT:
-                return "timeout", total
+            elif total == 0:
+                if keepalive and not self.keepalive(state):
+                    return "client", total
+                if time.time() - t0 > FIRST_BYTE_TIMEOUT:
+                    return "timeout", total
         return "stop", total
-
-    def send_intro(self, state):
-        """Envoie le silence d'ouverture, si demande. Retourne False si le lecteur est deja parti."""
-        data = silence_bytes(INTRO_SILENCE) if INTRO_SILENCE > 0 else b""
-        if not data:
-            return True
-        try:
-            self.send_response(200)
-            self.send_header("Content-Type", "audio/aac")
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            state["sent"] = True
-            self.wfile.write(data)
-            self.wfile.flush()
-        except OSError:
-            return False
-        return True
 
     def client_gone(self):
         """Vrai si le lecteur a ferme la connexion (sans bloquer)."""
@@ -558,20 +605,51 @@ class Handler(http.server.BaseHTTPRequestHandler):
                  time.time() - t_start, total / 1e6)
 
     def stream_playlist(self, name, list_url):
-        state = {"sent": False}
+        state = {"sent": False, "music": False, "name": name, "wait_since": time.time(), "sil_next": None}
         total = played = failures = reencoded = 0
         t_start = time.time()
         reason = "stop"
         log.info("%s : ecoute de playlist demarree", name)
-        if not self.send_intro(state):
-            log.info("%s : ecoute de playlist terminee (client) avant la premiere piste", name)
-            return
-        ids = playlist_ids(name, list_url)
+        # La liste et la premiere piste sont preparees a part. A froid, cela prend une dizaine de
+        # secondes, plus que ce que le lecteur attend : pendant ce temps on lui envoie du silence.
+        prep = {"done": threading.Event(), "ids": None, "shuffler": None, "track": None, "abandoned": False}
+        plock = threading.Lock()
+
+        def prepare():
+            track = None
+            try:
+                prep["ids"] = playlist_ids(name, list_url)
+                if prep["ids"]:
+                    prep["shuffler"] = Shuffler(prep["ids"])
+                    log.info("%s : %d piste(s), ordre aleatoire", name, len(prep["ids"]))
+                    track = self.open_track(name, prep["shuffler"])
+            except Exception as e:           # le fil ne doit jamais mourir sans signaler sa fin
+                log.error("%s : preparation impossible : %s", name, e)
+            finally:
+                with plock:
+                    if prep["abandoned"] and track is not None:
+                        track.stop()         # le lecteur est parti pendant ce temps
+                        track = None
+                    prep["track"] = track
+                    prep["done"].set()
+
+        threading.Thread(target=prepare, daemon=True).start()
         cur = nxt = None
         try:
-            if ids:
-                shuffler = Shuffler(ids)
-                log.info("%s : %d piste(s), ordre aleatoire", name, len(ids))
+            left = False
+            while not prep["done"].wait(0.5):
+                if stopping.is_set() or self.client_gone() or not self.keepalive(state):
+                    left = True
+                    break
+            with plock:
+                if left and not prep["done"].is_set():
+                    prep["abandoned"] = True    # la preparation rangera elle-meme sa piste
+                cur = prep["track"]
+            if left:
+                reason = "client"
+            shuffler = prep["shuffler"]
+            if not left and shuffler is not None:
+                log.info("%s : preparation terminee apres %.0f s", name, time.time() - t_start)
                 while not stopping.is_set():
                     if self.client_gone():
                         reason = "client"
@@ -597,7 +675,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                     and sent >= cur_track.prestart_at):
                                 nxt = self.open_track(name, shuffler)
 
-                        reason, n = self.relay(cur.f, state, hook)
+                        reason, n = self.relay(cur.f, state, hook, keepalive=True)
                         total += n
                         ok = False
                         if reason == "eof":
@@ -615,8 +693,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             failures += 1
                             log.warning("%s : piste %s interrompue (%s) %s", name, cur.vid, reason, err)
                         cur, nxt = nxt, None
-                    # Au demarrage, on echoue vite ; en cours de route, on saute les pistes en echec.
-                    if failures > (TRACK_FAILURES if state["sent"] else 1):
+                    # Tant qu'aucune musique n'est partie, on echoue vite ; ensuite on saute les pistes en echec.
+                    if failures > (TRACK_FAILURES if state["music"] else 1):
                         log.error("%s : abandon apres %d pistes de suite en echec", name, failures)
                         break
         finally:
@@ -653,6 +731,8 @@ def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout,
                         format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     server = Server((BIND, PORT), Handler)
+    if SILENCE_KEEPALIVE:
+        threading.Thread(target=silence_bytes, args=(1.0,), daemon=True).start()   # pret avant d'en avoir besoin
 
     def on_signal(signum, _frame):
         log.info("arret demande")
