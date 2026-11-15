@@ -38,11 +38,15 @@
 # Le rechargement automatique après un git pull a été validé en conditions réelles le 04/11/2026.
 # =============================================================================
 
+# NightmareOwl radios
+
+nightmare-owl       https://www.youtube.com/watch?v=YgU261Zlkco
+
 # Azeroth Ambience radios
 
-wow-ambient     https://www.youtube.com/watch?v=fv1QUKI2u-I
+azeroth-ambience    https://www.youtube.com/watch?v=fv1QUKI2u-I
 
 # Kiwinet Playlists
 
-kiwi-playlist  https://www.youtube.com/playlist?list=PLWdNXL7g_TPkMZxlEpowdFuP8QTqu4rHo
-dungeon-synth  https://www.youtube.com/playlist?list=PLVQ-kLHGeG5E
+kiwi-playlist       https://www.youtube.com/playlist?list=PLWdNXL7g_TPkMZxlEpowdFuP8QTqu4rHo
+dungeon-synth       https://www.youtube.com/playlist?list=PLVQ-kLHGeG5E
