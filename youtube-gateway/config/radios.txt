@@ -48,5 +48,6 @@ azeroth-ambience    https://www.youtube.com/watch?v=fv1QUKI2u-I
 
 # Kiwinet Playlists
 
-kiwi-playlist       https://www.youtube.com/playlist?list=PLWdNXL7g_TPkMZxlEpowdFuP8QTqu4rHo
-dungeon-synth       https://www.youtube.com/playlist?list=PLVQ-kLHGeG5E
+kiwi-playlist       https://www.youtube.com/playlist?list=PLOgnRqYa8KUQ
+dungeon-synth       https://www.youtube.com/playlist?list=PLBO5-qzEUBcA
+dark-ambient        https://www.youtube.com/playlist?list=PLKicHbH3wuWw
