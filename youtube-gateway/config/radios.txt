@@ -38,20 +38,6 @@
 # Le rechargement automatique après un git pull a été validé en conditions réelles le 04/11/2026.
 # =============================================================================
 
-# Lofi Girl radios
-
-lofi-hip-hop    https://www.youtube.com/watch?v=rFZHOHl-L8A
-synthwave       https://www.youtube.com/watch?v=4xDzrJKXOOY
-lofi-house      https://www.youtube.com/watch?v=3PFJ9SETS4M
-dark-ambient    https://www.youtube.com/watch?v=S_MOd40zlYU
-jazz-relax      https://www.youtube.com/watch?v=A8jDx9TLMQc
-piano-relax     https://www.youtube.com/watch?v=N0snMcR6aaA
-lofi-summer     https://www.youtube.com/watch?v=0muHFBSiybw
-synth-ambient   https://www.youtube.com/watch?v=GSfT7H87zq4
-lofi-sleep      https://www.youtube.com/watch?v=VAlMDl00mYY
-lofi-asian      https://www.youtube.com/watch?v=1Tl2FtV06qo
-lofi-jazz       https://www.youtube.com/watch?v=E2vONfzoyRI
-
 # Azeroth Ambience radios
 
 wow-ambient     https://www.youtube.com/watch?v=fv1QUKI2u-I
@@ -59,4 +45,4 @@ wow-ambient     https://www.youtube.com/watch?v=fv1QUKI2u-I
 # Kiwinet Playlists
 
 kiwi-playlist  https://www.youtube.com/playlist?list=PLWdNXL7g_TPkMZxlEpowdFuP8QTqu4rHo
-dungeon-synth  https://www.youtube.com/playlist?list=PLNXg-SyAx8I0
+dungeon-synth  https://www.youtube.com/playlist?list=PLVQ-kLHGeG5E
